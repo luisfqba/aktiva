@@ -1,3 +1,4 @@
+
 # -*- encoding: utf-8 -*-
 ###########################################################################
 #    Module Writen to OpenERP, Open Source Management Solution
@@ -45,6 +46,9 @@ import tempfile
 import os
 import codecs
 from datetime import datetime, timedelta
+import jinja2
+import xml
+import unicodedata
 
 
 def exec_command_pipe(name, *args):
@@ -80,43 +84,45 @@ def find_in_subpath(name, subpath):
                 return val
     return None
 
-# TODO: Agregar una libreria para esto
-
-
-def conv_ascii(text):
-    """
-    @param text : text that need convert vowels accented & characters to ASCII
-    Converts accented vowels, ñ and ç to their ASCII equivalent characters
-    """
-    old_chars = [
-        'á', 'é', 'í', 'ó', 'ú', 'à', 'è', 'ì', 'ò', 'ù', 'ä', 'ë', 'ï', 'ö',
-        'ü', 'â', 'ê', 'î', 'ô', 'û', 'Á', 'É', 'Í', 'Ó', 'Ú', 'À', 'È', 'Ì',
-        'Ò', 'Ù', 'Ä', 'Ë', 'Ï', 'Ö', 'Ü', 'Â', 'Ê', 'Î', 'Ô', 'Û', 'ñ', 'Ñ',
-        'ç', 'Ç', 'ª', 'º', '°', ' ', 'Ã', 'Ø'
-    ]
-    new_chars = [
-        'a', 'e', 'i', 'o', 'u', 'a', 'e', 'i', 'o', 'u', 'a', 'e', 'i', 'o',
-        'u', 'a', 'e', 'i', 'o', 'u', 'A', 'E', 'I', 'O', 'U', 'A', 'E', 'I',
-        'O', 'U', 'A', 'E', 'I', 'O', 'U', 'A', 'E', 'I', 'O', 'U', 'n', 'N',
-        'c', 'C', 'a', 'o', 'o', ' ', 'A', '0'
-    ]
-    for old, new in zip(old_chars, new_chars):
-        try:
-            text = text.replace(unicode(old, 'UTF-8'), new)
-        except:
-            try:
-                text = text.replace(old, new)
-            except:
-                raise osv.except_osv(_('Warning !'), _(
-                    "Can't recode the string [%s] in the letter [%s]") % (text, old))
-    return text
-
 # Cambiar el error
 msg2 = "Contact you administrator &/or to info@vauxoo.com"
 
 
 class account_invoice(osv.Model):
     _inherit = 'account.invoice'
+
+    def remove_accents(self, cr, uid, ids, input_str):
+        nkfd_form = unicodedata.normalize('NFKD', unicode(input_str))
+        only_ascii = nkfd_form.encode('ASCII', 'ignore')
+        return self.conv_ascii(cr, uid, ids, only_ascii)
+    
+    def conv_ascii(self, cr, uid, ids, text):
+        """
+        @param text : text that need convert vowels accented & characters to ASCII
+        Converts accented vowels, ñ and ç to their ASCII equivalent characters
+        """
+        old_chars = [
+            'á', 'é', 'í', 'ó', 'ú', 'à', 'è', 'ì', 'ò', 'ù', 'ä', 'ë', 'ï', 'ö',
+            'ü', 'â', 'ê', 'î', 'ô', 'û', 'Á', 'É', 'Í', 'Ó', 'Ú', 'À', 'È', 'Ì',
+            'Ò', 'Ù', 'Ä', 'Ë', 'Ï', 'Ö', 'Ü', 'Â', 'Ê', 'Î', 'Ô', 'Û', 'ñ', 'Ñ',
+            'ç', 'Ç', 'ª', 'º', '°', ' ', 'Ã', 'Ø', '&', '´'
+        ]
+        new_chars = [
+            'a', 'e', 'i', 'o', 'u', 'a', 'e', 'i', 'o', 'u', 'a', 'e', 'i', 'o',
+            'u', 'a', 'e', 'i', 'o', 'u', 'A', 'E', 'I', 'O', 'U', 'A', 'E', 'I',
+            'O', 'U', 'A', 'E', 'I', 'O', 'U', 'A', 'E', 'I', 'O', 'U', 'n', 'N',
+            'c', 'C', 'a', 'o', 'o', ' ', 'A', '0' ,'y', ''
+        ]
+        for old, new in zip(old_chars, new_chars):
+            try:
+                text = text.replace(unicode(old, 'UTF-8'), new)
+            except:
+                try:
+                    text = text.replace(old, new)
+                except:
+                    raise osv.except_osv(_('Warning !'), _(
+                        "Can't recode the string [%s] in the letter [%s]") % (text, old))
+        return text
 
     def create_report(self, cr, uid, res_ids, report_name=False, file_name=False, context=None):
         """
@@ -700,7 +706,7 @@ class account_invoice(osv.Model):
             key_item_sort.append([key_too, data_dict[key_too]])
         return key_item_sort
 
-    def dict2xml(self, data_dict, node=False, doc=False):
+    def dict2xml(self, cr, uid, ids, data_dict, node=False, doc=False):
         """
         @param data_dict : Dictionary of attributes for add in the XML 
                     that will be generated
@@ -717,20 +723,20 @@ class account_invoice(osv.Model):
             if isinstance(attribute, dict):
                 if not parent:
                     node = doc.createElement(element)
-                    self.dict2xml(attribute, node, doc)
+                    self.dict2xml(cr, uid, ids, attribute, node, doc)
                 else:
                     child = doc.createElement(element)
-                    self.dict2xml(attribute, child, doc)
+                    self.dict2xml(cr, uid, ids, attribute, child, doc)
                     node.appendChild(child)
             elif isinstance(attribute, list):
                 child = doc.createElement(element)
                 for attr in attribute:
                     if isinstance(attr, dict):
-                        self.dict2xml(attr, child, doc)
+                        self.dict2xml(cr, uid, ids, attr, child, doc)
                 node.appendChild(child)
             else:
                 if isinstance(attribute, str) or isinstance(attribute, unicode):
-                    attribute = conv_ascii(attribute)
+                    attribute = self.remove_accents(cr, uid, ids, attribute)
                 else:
                         attribute = str(attribute)
                 node.setAttribute(element, attribute)
@@ -742,88 +748,104 @@ class account_invoice(osv.Model):
     def _get_facturae_invoice_xml_data(self, cr, uid, ids, context=None):
         if context is None:
             context = {}
-        data_dict = self._get_facturae_invoice_dict_data(
-            cr, uid, ids, context=context)[0]
-        doc_xml = self.dict2xml({
-                                'Comprobante': data_dict.get('Comprobante')})
-        invoice_number = "sn"
-        (fileno_xml, fname_xml) = tempfile.mkstemp(
+        data_dict = self._get_facturae_invoice_dict_data(cr, uid, ids, context=context)[0]
+        data_xml=False
+        fname_xml=False
+        ir_seq_app_obj = self.pool.get('ir.sequence.approval')
+        invoice = self.browse(cr, uid, ids[0], context=context)
+        sequence_app_id = ir_seq_app_obj.search(cr, uid, [(
+            'sequence_id', '=', invoice.invoice_sequence_id.id)], context=context)
+        if sequence_app_id:
+            type_inv = ir_seq_app_obj.browse(cr, uid, sequence_app_id[0], context=context).type
+        if not 'cfdi' in type_inv:
+            #doc_xml = self.dict2xml(cr, uid, ids, {'Comprobante': data_dict.get('Comprobante')})
+            all_paths = tools.config["addons_path"].split(",")
+            for my_path in all_paths:
+                if os.path.isdir(os.path.join(my_path, 'l10n_mx_facturae', 'template')):
+                    fname_jinja_tmpl = my_path and os.path.join(my_path, 'l10n_mx_facturae', 'template', 'cfd' + '.xml') or ''
+            dictargs = {
+                'o': data_dict
+                }
+            invoice_number = "sn"
+            (fileno_xml, fname_xml) = tempfile.mkstemp('.xml', 'openerp_' + (invoice_number or '') + '__facturae__')
+            with open(fname_jinja_tmpl, 'r') as f_jinja_tmpl:
+                jinja_tmpl_str = f_jinja_tmpl.read().encode('utf-8')
+                tmpl = jinja2.Template( jinja_tmpl_str )
+                with open(fname_xml, 'w') as new_xml:
+                    new_xml.write( tmpl.render(**dictargs) )
+            with open(fname_xml,'rb') as b:
+                jinja2_xml = b.read().encode('utf-8')
+                doc_xml = xml.dom.minidom.parseString(jinja2_xml)
+            (fileno_xml, fname_xml) = tempfile.mkstemp(
             '.xml', 'openerp_' + (invoice_number or '') + '__facturae__')
-        fname_txt = fname_xml + '.txt'
-        f = open(fname_xml, 'w')
-        doc_xml.writexml(
-            f, indent='    ', addindent='    ', newl='\r\n', encoding='UTF-8')
-        f.close()
-        os.close(fileno_xml)
+            fname_txt = fname_xml + '.txt'
+            f = open(fname_xml, 'w')
+            doc_xml.writexml(f, indent='    ', addindent='    ', newl='\r\n', encoding='UTF-8')
+            f.close()
+            os.close(fileno_xml)
+            (fileno_sign, fname_sign) = tempfile.mkstemp('.txt', 'openerp_' + (
+                invoice_number or '') + '__facturae_txt_md5__')
+            os.close(fileno_sign)
+            context.update({
+                'fname_xml': fname_xml,
+                'fname_txt': fname_txt,
+                'fname_sign': fname_sign,
+            })
+            context.update(self._get_file_globals(cr, uid, ids, context=context))
+            fname_txt, txt_str = self._xml2cad_orig(cr=False, uid=False, ids=False, context=context)
+            data_dict['cadena_original'] = txt_str
 
-        (fileno_sign, fname_sign) = tempfile.mkstemp('.txt', 'openerp_' + (
-            invoice_number or '') + '__facturae_txt_md5__')
-        os.close(fileno_sign)
+            if not txt_str:
+                raise osv.except_osv(_('Error en Cadena original!'), _(
+                    "Can't get the string original of the voucher.\nCkeck your configuration.\n%s" % (msg2)))
 
-        context.update({
-            'fname_xml': fname_xml,
-            'fname_txt': fname_txt,
-            'fname_sign': fname_sign,
-        })
-        context.update(self._get_file_globals(cr, uid, ids, context=context))
-        fname_txt, txt_str = self._xml2cad_orig(
-            cr=False, uid=False, ids=False, context=context)
-        data_dict['cadena_original'] = txt_str
+            if not data_dict['Comprobante'].get('folio', ''):
+                raise osv.except_osv(_('Error in Folio!'), _(
+                    "Can't get the folio of the voucher.\nBefore generating the XML, click on the button, generate invoice.\nCkeck your configuration.\n%s" % (msg2)))
 
-        if not txt_str:
-            raise osv.except_osv(_('Error en Cadena original!'), _(
-                "Can't get the string original of the voucher.\nCkeck your configuration.\n%s" % (msg2)))
+            # time.strftime('%Y-%m-%dT%H:%M:%S',
+            # time.strptime(invoice.date_invoice, '%Y-%m-%d %H:%M:%S'))
+            context.update({'fecha': data_dict['Comprobante']['fecha']})
+            sign_str = self._get_sello(cr=False, uid=False, ids=False, context=context)
+            if not sign_str:
+                raise osv.except_osv(_('Error in Stamp !'), _(
+                    "Can't generate the stamp of the voucher.\nCkeck your configuration.\ns%s") % (msg2))
 
-        if not data_dict['Comprobante'].get('folio', ''):
-            raise osv.except_osv(_('Error in Folio!'), _(
-                "Can't get the folio of the voucher.\nBefore generating the XML, click on the button, generate invoice.\nCkeck your configuration.\n%s" % (msg2)))
+            nodeComprobante = doc_xml.getElementsByTagName("Comprobante")[0]
+            nodeComprobante.setAttribute("sello", sign_str)
+            data_dict['Comprobante']['sello'] = sign_str
 
-        # time.strftime('%Y-%m-%dT%H:%M:%S',
-        # time.strptime(invoice.date_invoice, '%Y-%m-%d %H:%M:%S'))
-        context.update({'fecha': data_dict['Comprobante']['fecha']})
-        sign_str = self._get_sello(
-            cr=False, uid=False, ids=False, context=context)
-        if not sign_str:
-            raise osv.except_osv(_('Error in Stamp !'), _(
-                "Can't generate the stamp of the voucher.\nCkeck your configuration.\ns%s") % (msg2))
+            noCertificado = self._get_noCertificado(cr, uid, ids, context['fname_cer'])
+            if not noCertificado:
+                raise osv.except_osv(_('Error in No. Certificate !'), _(
+                    "Can't get the Certificate Number of the voucher.\nCkeck your configuration.\n%s") % (msg2))
+            nodeComprobante.setAttribute("noCertificado", noCertificado)
+            data_dict['Comprobante']['noCertificado'] = noCertificado
 
-        nodeComprobante = doc_xml.getElementsByTagName("Comprobante")[0]
-        nodeComprobante.setAttribute("sello", sign_str)
-        data_dict['Comprobante']['sello'] = sign_str
-
-        noCertificado = self._get_noCertificado(cr, uid, ids, context['fname_cer'])
-        if not noCertificado:
-            raise osv.except_osv(_('Error in No. Certificate !'), _(
-                "Can't get the Certificate Number of the voucher.\nCkeck your configuration.\n%s") % (msg2))
-        nodeComprobante.setAttribute("noCertificado", noCertificado)
-        data_dict['Comprobante']['noCertificado'] = noCertificado
-
-        cert_str = self._get_certificate_str(context['fname_cer'])
-        if not cert_str:
-            raise osv.except_osv(_('Error in Certificate!'), _(
-                "Can't generate the Certificate of the voucher.\nCkeck your configuration.\n%s") % (msg2))
-        cert_str = cert_str.replace(' ', '').replace('\n', '')
-        nodeComprobante.setAttribute("certificado", cert_str)
-        data_dict['Comprobante']['certificado'] = cert_str
-
-        self.write_cfd_data(cr, uid, ids, data_dict, context=context)
-
-        if context.get('type_data') == 'dict':
-            return data_dict
-        if context.get('type_data') == 'xml_obj':
-            return doc_xml
-        data_xml = doc_xml.toxml('UTF-8')
-        data_xml = codecs.BOM_UTF8 + data_xml
-        fname_xml = (data_dict['Comprobante']['Emisor']['rfc'] or '') + '_' + (
-            data_dict['Comprobante'].get('serie', '') or '') + '_' + (
-            data_dict['Comprobante'].get('folio', '') or '') + '.xml'
-        data_xml = data_xml.replace('<?xml version="1.0" encoding="UTF-8"?>', '<?xml version="1.0" encoding="UTF-8"?>\n')
-        date_invoice = data_dict.get('Comprobante',{}) and datetime.strptime( data_dict.get('Comprobante',{}).get('fecha',{}), '%Y-%m-%dT%H:%M:%S').strftime('%Y-%m-%d') or False
-        facturae_version = '2.2'
-        if date_invoice  and date_invoice < '2012-07-01':
-            facturae_version = '2.0'
-        self.validate_scheme_facturae_xml(cr, uid, ids, [data_xml], facturae_version)
-        data_dict.get('Comprobante',{})
+            cert_str = self._get_certificate_str(context['fname_cer'])
+            if not cert_str:
+                raise osv.except_osv(_('Error in Certificate!'), _(
+                    "Can't generate the Certificate of the voucher.\nCkeck your configuration.\n%s") % (msg2))
+            cert_str = cert_str.replace(' ', '').replace('\n', '')
+            nodeComprobante.setAttribute("certificado", cert_str)
+            data_dict['Comprobante']['certificado'] = cert_str
+                
+            self.write_cfd_data(cr, uid, ids, data_dict, context=context)
+            if context.get('type_data') == 'dict':
+                return data_dict
+            if context.get('type_data') == 'xml_obj':
+                return doc_xml
+            data_xml = doc_xml.toxml('UTF-8')
+            data_xml = codecs.BOM_UTF8 + data_xml
+            fname_xml = (data_dict['Comprobante']['Emisor']['rfc'] or '') + '_' + (
+                data_dict['Comprobante'].get('serie', '') or '') + '_' + (
+                data_dict['Comprobante'].get('folio', '') or '') + '.xml'
+            data_xml = data_xml.replace('<?xml version="1.0" encoding="UTF-8"?>', '<?xml version="1.0" encoding="UTF-8"?>\n')
+            date_invoice = data_dict.get('Comprobante',{}) and datetime.strptime( data_dict.get('Comprobante',{}).get('fecha',{}), '%Y-%m-%dT%H:%M:%S').strftime('%Y-%m-%d') or False
+            facturae_version = '2.2'
+            if date_invoice  and date_invoice < '2012-07-01':
+                facturae_version = '2.0'
+            self.validate_scheme_facturae_xml(cr, uid, ids, [data_xml], facturae_version)
         return fname_xml, data_xml
 
     def validate_scheme_facturae_xml(self, cr, uid, ids, datas_xmls=[], facturae_version = None, facturae_type="cfdv", scheme_type='xsd'):
@@ -843,7 +865,6 @@ class account_invoice(osv.Model):
                 if os.path.isdir(os.path.join(my_path, 'l10n_mx_facturae', 'SAT')):
                     # If dir is in path, save it on real_path
                     fname_scheme = my_path and os.path.join(my_path, 'l10n_mx_facturae', 'SAT', facturae_type + facturae_version +  '.' + scheme_type) or ''
-                    #fname_scheme = os.path.join(tools.config["addons_path"], u'l10n_mx_facturae', u'SAT', facturae_type + facturae_version +  '.' + scheme_type )
                     fname_out = certificate_lib.b64str_to_tempfile(cr, uid, ids, base64.encodestring(''), file_suffix='.txt', file_prefix='openerp__' + (False or '') + '__schema_validation_result__' )
                     result = certificate_lib.check_xml_scheme(cr, uid, ids, fname_data_xml, fname_scheme, fname_out)
                     if result: #Valida el xml mediante el archivo xsd
@@ -866,8 +887,7 @@ class account_invoice(osv.Model):
             cfd_data = cfd_datas
             noCertificado = cfd_data.get(
                 'Comprobante', {}).get('noCertificado', '')
-            certificado = cfd_data.get(
-                'Comprobante', {}).get('certificado', '')
+            certificado = cfd_data.get('Comprobante', {}).get('certificado', '')
             sello = cfd_data.get('Comprobante', {}).get('sello', '')
             cadena_original = cfd_data.get('cadena_original', '')
             data = {
@@ -997,7 +1017,7 @@ class account_invoice(osv.Model):
                 invoice.date_invoice_tz, '%Y-%m-%d %H:%M:%S'))
                 or '',
                 'tipoDeComprobante': tipoComprobante,
-                'formaDePago': u'Pago en una sola exhibición',
+                'formaDePago': "Pago en una sola exhibicion",
                 'noCertificado': '@',
                 'sello': '@',
                 'certificado': '@',
@@ -1037,22 +1057,70 @@ class account_invoice(osv.Model):
 
             invoice_data = invoice_data_parent['Comprobante']
             invoice_data['Emisor'] = {}
-            invoice_data['Emisor'].update({
-
-                'rfc': (('vat_split' in address_invoice_parent._columns and \
-                address_invoice_parent.vat_split or address_invoice_parent.vat) \
-                or '').replace('-', ' ').replace(' ', '').upper(),
-                'nombre': address_invoice_parent.name or '',
-                # Obtener domicilio dinamicamente
-                # virtual_invoice.append( (invoice.company_id and
-                # invoice.company_id.partner_id and
-                # invoice.company_id.partner_id.vat or '').replac
-
-                'DomicilioFiscal': {
-                    'calle': address_invoice_parent.street and \
+            name = self.remove_accents(cr, uid, ids, address_invoice_parent.name)
+            calle = address_invoice_parent.street and \
                         address_invoice_parent.street.replace('\n\r', ' ').\
                         replace('\r\n', ' ').replace('\n', ' ').replace(
-                        '\r', ' ') or '',
+                        '\r', ' ') or ''
+            calle = self.remove_accents(cr, uid, ids, calle)
+            colonia = address_invoice_parent.street2 and \
+                        address_invoice_parent.street2.replace('\n\r', ' ').\
+                        replace('\r\n', ' ').replace('\n', ' ').replace(
+                        '\r', ' ') or False
+            colonia = self.remove_accents(cr, uid, ids, colonia)
+            localidad = address_invoice_parent.l10n_mx_city2 and \
+                        address_invoice_parent.l10n_mx_city2.replace(
+                        '\n\r', ' ').replace('\r\n', ' ').replace('\n', ' ').\
+                        replace('\r', ' ') or False
+            localidad = self.remove_accents(cr, uid, ids, localidad)
+            municipio = address_invoice_parent.city and \
+                        address_invoice_parent.city.replace('\n\r', ' ').\
+                        replace('\r\n', ' ').replace('\n', ' ').replace(
+                        '\r', ' ') or ''
+            municipio = self.remove_accents(cr, uid, ids, municipio)
+            estado = address_invoice_parent.state_id and \
+                        address_invoice_parent.state_id.name and \
+                        address_invoice_parent.state_id.name.replace(
+                        '\n\r', ' ').replace('\r\n', ' ').replace(
+                        '\n', ' ').replace('\r', ' ') or ''
+            estado = self.remove_accents(cr, uid, ids, estado)
+            pais = address_invoice_parent.country_id and address_invoice_parent.\
+                        country_id.name and address_invoice_parent.country_id.name.\
+                        replace('\n\r', ' ').replace('\r\n', ' ').replace(
+                        '\n', ' ').replace('\r', ' ') or ''
+            pais = self.remove_accents(cr, uid, ids, pais)
+            
+            ExpedidoEncalle = address_invoice.street and address_invoice.\
+                        street.replace('\n\r', ' ').replace('\r\n', ' ').\
+                        replace('\n', ' ').replace('\r', ' ') or ''
+            ExpedidoEncalle = self.remove_accents(cr, uid, ids, ExpedidoEncalle)
+            ExpedidoEncolonia = address_invoice.street2 and address_invoice.\
+                        street2.replace('\n\r', ' ').replace('\r\n', ' ').\
+                        replace('\n', ' ').replace('\r', ' ') or False
+            ExpedidoEncolonia = self.remove_accents(cr, uid, ids, ExpedidoEncolonia)
+            ExpedidoEnlocalidad = address_invoice.l10n_mx_city2 and \
+                        address_invoice.l10n_mx_city2.replace('\n\r', ' ').\
+                        replace('\r\n', ' ').replace('\n', ' ').replace(
+                        '\r', ' ') or False
+            ExpedidoEnlocalidad = self.remove_accents(cr, uid, ids, ExpedidoEnlocalidad)
+            ExpedidoEnmunicipio = address_invoice.city and address_invoice.\
+                        city.replace('\n\r', ' ').replace('\r\n', ' ').replace(
+                        '\n', ' ').replace('\r', ' ') or ''
+            ExpedidoEnmunicipio = self.remove_accents(cr, uid, ids, ExpedidoEnmunicipio)
+            ExpedidoEnestado = address_invoice.state_id and address_invoice.\
+                        state_id.name and address_invoice.state_id.name.replace(
+                        '\n\r', ' ').replace('\r\n', ' ').replace('\n', ' ').\
+                        replace('\r', ' ') or ''
+            ExpedidoEnestado = self.remove_accents(cr, uid, ids, ExpedidoEnestado)
+            
+            
+            invoice_data['Emisor'].update({
+                'rfc': (('vat_split' in address_invoice_parent._columns and \
+                address_invoice_parent.vat_split or address_invoice_parent.vat) \
+                or '').replace('-', ' ').replace(' ', ''),
+                'nombre': name or '',
+                'DomicilioFiscal': {
+                    'calle': calle or '',
                     'noExterior': address_invoice_parent.l10n_mx_street3 and \
                         address_invoice_parent.l10n_mx_street3.replace(
                         '\n\r', ' ').replace('\r\n', ' ').replace('\n', ' ').\
@@ -1061,37 +1129,18 @@ class account_invoice(osv.Model):
                         address_invoice_parent.l10n_mx_street4.replace(
                         '\n\r', ' ').replace('\r\n', ' ').replace('\n', ' ').\
                         replace('\r', ' ') or 'N/A',  # "Numero Interior"
-                    'colonia':  address_invoice_parent.street2 and \
-                        address_invoice_parent.street2.replace('\n\r', ' ').\
-                        replace('\r\n', ' ').replace('\n', ' ').replace(
-                        '\r', ' ') or False,
-                    'localidad': address_invoice_parent.l10n_mx_city2 and \
-                        address_invoice_parent.l10n_mx_city2.replace(
-                        '\n\r', ' ').replace('\r\n', ' ').replace('\n', ' ').\
-                        replace('\r', ' ') or False,
-                    'municipio': address_invoice_parent.city and \
-                        address_invoice_parent.city.replace('\n\r', ' ').\
-                        replace('\r\n', ' ').replace('\n', ' ').replace(
-                        '\r', ' ') or '',
-                    'estado': address_invoice_parent.state_id and \
-                        address_invoice_parent.state_id.name and \
-                        address_invoice_parent.state_id.name.replace(
-                        '\n\r', ' ').replace('\r\n', ' ').replace(
-                        '\n', ' ').replace('\r', ' ') or '',
-                    'pais': address_invoice_parent.country_id and \
-                        address_invoice_parent.country_id.name and \
-                        address_invoice_parent.country_id.name.replace(
-                        '\n\r', ' ').replace('\r\n', ' ').replace(
-                        '\n', ' ').replace('\r', ' ')or '',
+                    'colonia': colonia or False,
+                    'localidad': localidad or False,
+                    'municipio': municipio or '',
+                    'estado': estado or '',
+                    'pais': pais or '',
                     'codigoPostal': address_invoice_parent.zip and \
                         address_invoice_parent.zip.replace('\n\r', ' ').\
                         replace('\r\n', ' ').replace('\n', ' ').replace(
                         '\r', ' ').replace(' ', '') or '',
                 },
                 'ExpedidoEn': {
-                    'calle': address_invoice.street and address_invoice.\
-                        street.replace('\n\r', ' ').replace('\r\n', ' ').\
-                        replace('\n', ' ').replace('\r', ' ') or '',
+                    'calle': ExpedidoEncalle or '',
                     'noExterior': address_invoice.l10n_mx_street3 and \
                         address_invoice.l10n_mx_street3.replace(
                         '\n\r', ' ').replace('\r\n', ' ').replace('\n', ' ').\
@@ -1100,24 +1149,11 @@ class account_invoice(osv.Model):
                         address_invoice.l10n_mx_street4.replace('\n\r', ' ').\
                         replace('\r\n', ' ').replace('\n', ' ').replace(
                         '\r', ' ') or 'N/A',  # "Numero Interior"
-                    'colonia':  address_invoice.street2 and address_invoice.\
-                        street2.replace('\n\r', ' ').replace('\r\n', ' ').\
-                        replace('\n', ' ').replace('\r', ' ') or False,
-                    'localidad': address_invoice.l10n_mx_city2 and \
-                        address_invoice.l10n_mx_city2.replace('\n\r', ' ').\
-                        replace('\r\n', ' ').replace('\n', ' ').replace(
-                        '\r', ' ') or False,
-                    'municipio': address_invoice.city and address_invoice.\
-                        city.replace('\n\r', ' ').replace('\r\n', ' ').replace(
-                        '\n', ' ').replace('\r', ' ') or '',
-                    'estado': address_invoice.state_id and address_invoice.\
-                        state_id.name and address_invoice.state_id.name.replace(
-                        '\n\r', ' ').replace('\r\n', ' ').replace('\n', ' ').\
-                        replace('\r', ' ') or '',
-                    'pais': address_invoice.country_id and address_invoice.\
-                        country_id.name and address_invoice.country_id.name.\
-                        replace('\n\r', ' ').replace('\r\n', ' ').replace(
-                        '\n', ' ').replace('\r', ' ')or '',
+                    'colonia':  ExpedidoEncolonia or False,
+                    'localidad': ExpedidoEnlocalidad or False,
+                    'municipio': ExpedidoEnmunicipio or '',
+                    'estado': ExpedidoEnestado or '',
+                    'pais': pais or '',
                     'codigoPostal': address_invoice.zip and address_invoice.\
                         zip.replace('\n\r', ' ').replace('\r\n', ' ').replace(
                         '\n', ' ').replace('\r', ' ').replace(' ', '') or '',
@@ -1139,22 +1175,50 @@ class account_invoice(osv.Model):
                 raise osv.except_osv(_('Warning !'), _(
                     "Don't have defined RFC of the partner[%s].\n%s !") % (
                     parent_obj.name, msg2))
-            if parent_obj._columns.has_key('vat_split') and parent_obj.vat[0:2].upper() <> 'MX':
-                    rfc = 'XAXX010101000'
+            if parent_obj._columns.has_key('vat_split') and\
+                parent_obj.vat[0:2] <> 'MX':
+                rfc = 'XAXX010101000'
             else:
                 rfc = ((parent_obj._columns.has_key('vat_split')\
                     and parent_obj.vat_split or parent_obj.vat)\
-                    or '').replace('-', ' ').replace(' ','').upper()
+                    or '').replace('-', ' ').replace(' ','')
             address_invoice = partner_obj.browse(cr, uid, \
                 invoice.partner_id.id, context=context)
             invoice_data['Receptor'] = {}
-            invoice_data['Receptor'].update({
-                'rfc': rfc.upper(),
-                'nombre': (parent_obj.name or ''),
-                'Domicilio': {
-                    'calle': address_invoice.street and address_invoice.\
+            parent_name = self.remove_accents(cr, uid, ids, parent_obj.name)
+            Receptorcalle = address_invoice.street and address_invoice.\
                         street.replace('\n\r', ' ').replace('\r\n', ' ').replace(
-                        '\n', ' ').replace('\r', ' ') or '',
+                        '\n', ' ').replace('\r', ' ') or ''
+            Receptorcalle = self.remove_accents(cr, uid, ids, Receptorcalle)
+            Receptorpais = address_invoice.country_id and address_invoice.\
+                        country_id.name and address_invoice.country_id.name.\
+                        replace('\n\r', ' ').replace('\r\n', ' ').replace(
+                        '\n', ' ').replace('\r', ' ')or ''
+            Receptorpais = self.remove_accents(cr, uid, ids, Receptorpais)
+            Receptorcolonia = address_invoice.street2 and address_invoice.\
+                        street2.replace('\n\r', ' ').replace('\r\n', ' ').\
+                        replace('\n', ' ').replace('\r', ' ') or False
+            Receptorcolonia = self.remove_accents(cr, uid, ids, Receptorcolonia)
+            Receptorlocalidad = address_invoice.l10n_mx_city2 and \
+                        address_invoice.l10n_mx_city2.replace('\n\r', ' ').\
+                        replace('\r\n', ' ').replace('\n', ' ').replace(
+                        '\r', ' ') or False
+            Receptorlocalidad = self.remove_accents(cr, uid, ids, Receptorlocalidad)
+            Receptormunicipio = address_invoice.city and address_invoice.\
+                        city.replace('\n\r', ' ').replace('\r\n', ' ').replace(
+                        '\n', ' ').replace('\r', ' ') or ''
+            Receptormunicipio = self.remove_accents(cr, uid, ids, Receptormunicipio)
+            Receptorestado = address_invoice.state_id and address_invoice.\
+                        state_id.name and address_invoice.state_id.name.replace(
+                        '\n\r', ' ').replace('\r\n', ' ').replace('\n', ' ').\
+                        replace('\r', ' ') or ''
+            Receptorestado = self.remove_accents(cr, uid, ids, Receptorestado)
+            
+            invoice_data['Receptor'].update({
+                'rfc': rfc,
+                'nombre': parent_name or '',
+                'Domicilio': {
+                    'calle': Receptorcalle or '',
                     'noExterior': address_invoice.l10n_mx_street3 and \
                         address_invoice.l10n_mx_street3.replace('\n\r', ' ').\
                         replace('\r\n', ' ').replace('\n', ' ').replace(
@@ -1163,24 +1227,11 @@ class account_invoice(osv.Model):
                         address_invoice.l10n_mx_street4.replace('\n\r', ' ').\
                         replace('\r\n', ' ').replace('\n', ' ').replace(
                         '\r', ' ') or 'N/A',  # "Numero Interior"
-                    'colonia':  address_invoice.street2 and address_invoice.\
-                        street2.replace('\n\r', ' ').replace('\r\n', ' ').\
-                        replace('\n', ' ').replace('\r', ' ') or False,
-                    'localidad': address_invoice.l10n_mx_city2 and \
-                        address_invoice.l10n_mx_city2.replace('\n\r', ' ').\
-                        replace('\r\n', ' ').replace('\n', ' ').replace(
-                        '\r', ' ') or False,
-                    'municipio': address_invoice.city and address_invoice.\
-                        city.replace('\n\r', ' ').replace('\r\n', ' ').replace(
-                        '\n', ' ').replace('\r', ' ') or '',
-                    'estado': address_invoice.state_id and address_invoice.\
-                        state_id.name and address_invoice.state_id.name.replace(
-                        '\n\r', ' ').replace('\r\n', ' ').replace('\n', ' ').\
-                        replace('\r', ' ') or '',
-                    'pais': address_invoice.country_id and address_invoice.\
-                        country_id.name and address_invoice.country_id.name.\
-                        replace('\n\r', ' ').replace('\r\n', ' ').replace(
-                        '\n', ' ').replace('\r', ' ')or '',
+                    'colonia':  Receptorcolonia or False,
+                    'localidad': Receptorlocalidad or False,
+                    'municipio': Receptormunicipio or '',
+                    'estado': Receptorestado or '',
+                    'pais': Receptorpais or '',
                     'codigoPostal': address_invoice.zip and address_invoice.\
                         zip.replace('\n\r', ' ').replace('\r\n', ' ').replace(
                         '\n', ' ').replace('\r', ' ') or '',
@@ -1202,7 +1253,7 @@ class account_invoice(osv.Model):
                     line.quantity or 0.0
                 concepto = {
                     'cantidad': "%.2f" % (line.quantity or 0.0),
-                    'descripcion': line.name or '',
+                    'descripcion': self.remove_accents(cr, uid, ids, line.name) or '',
                     'valorUnitario': "%.2f" % (price_unit or 0.0),
                     'importe': "%.2f" % (line.price_subtotal or 0.0),  # round(line.price_unit *(1-(line.discount/100)),2) or 0.00),#Calc: iva, disc, qty
                     # Falta agregar discount
@@ -1225,7 +1276,7 @@ class account_invoice(osv.Model):
                             'aduana': pedimento.customs,
                         }
                         concepto.update({
-                                        'cfdi:InformacionAduanera': informacion_aduanera})
+                                        'InformacionAduanera': informacion_aduanera})
                 # Termina seccion: Conceptos
             # Inicia seccion: impuestos
             invoice_data['Impuestos'] = {}
@@ -1257,12 +1308,9 @@ class account_invoice(osv.Model):
                         'Retenciones', [])
                     impuesto_str = 'Retencion'
                     totalImpuestosRetenidos += line_tax_id_amount
-                    invoice_data['Impuestos'].update({
-                                    'totalImpuestosRetenidos': "%.2f" % (totalImpuestosRetenidos)
-                                    })
                 impuesto_dict = {impuesto_str:
                                 {
-                                 'impuesto': tax_name,
+                                 'impuesto': self.remove_accents(cr, uid, ids, tax_name),
                                  'importe': "%.2f" % (line_tax_id_amount),
                                  }
                                  }
@@ -1270,15 +1318,21 @@ class account_invoice(osv.Model):
                     impuesto_dict[impuesto_str].update({
                             'tasa': "%.2f" % (abs(line_tax_id.tax_percent))})
                 impuesto_list.append(impuesto_dict)
+
             invoice_data['Impuestos'].update({
                 'totalImpuestosTrasladados': "%.2f" % (totalImpuestosTrasladados),
             })
+            if totalImpuestosRetenidos:
+                invoice_data['Impuestos'].update({
+                    'totalImpuestosRetenidos': "%.2f" % (totalImpuestosRetenidos)
+                })
+
             tax_requireds = ['IVA', 'IEPS']
             for tax_required in tax_requireds:
                 if tax_required in tax_names:
                     continue
                 invoice_data_impuestos['Traslados'].append({'Traslado': {
-                    'impuesto': tax_required,
+                    'impuesto': self.remove_accents(cr, uid, ids, tax_required),
                     'tasa': "%.2f" % (0.0),
                     'importe': "%.2f" % (0.0),
                 }})
@@ -1332,9 +1386,9 @@ class account_invoice(osv.Model):
                 raise osv.except_osv(_('Address Incomplete!'), _(
                     'Ckeck that the address of company issuing of fiscal voucher is complete (City - State - Country)'))
 
-            if not invoice.company_emitter_id.partner_id.regimen_fiscal_id.name:
-                raise osv.except_osv(_('Missing Fiscal Regime!'), _(
-                    'The Fiscal Regime of the company issuing of fiscal voucher is a data required'))
+            #if not invoice.company_emitter_id.partner_id.regimen_fiscal_id.name:
+            #    raise osv.except_osv(_('Missing Fiscal Regime!'), _(
+            #        'The Fiscal Regime of the company issuing of fiscal voucher is a data required'))
 
             invoice_data_parents[0]['Comprobante'][
                 'xsi:schemaLocation'] = 'http://www.sat.gob.mx/cfd/2 http://www.sat.gob.mx/sitio_internet/cfd/2/cfdv22.xsd'
@@ -1346,11 +1400,13 @@ class account_invoice(osv.Model):
             invoice_data_parents[0]['Comprobante'][
                 'NumCtaPago'] = invoice.acc_payment.last_acc_number\
                     or 'No identificado'
+            metodoDePago = invoice.pay_method_id.name or 'No identificado'
             invoice_data_parents[0]['Comprobante'][
-                'metodoDePago'] = invoice.pay_method_id.name or 'No identificado'
-            invoice_data_parents[0]['Comprobante']['Emisor']['RegimenFiscal'] = {
-                'Regimen': invoice.company_emitter_id.partner_id.\
-                    regimen_fiscal_id.name or ''}
+                'metodoDePago'] = self.remove_accents(cr, uid, ids, metodoDePago)
+            regimen = invoice.company_emitter_id.partner_id.regimen_fiscal_id.name
+#            regimen = invoice.company_emitter_id.partner_id.regimen_fiscal_id.name or 'Personas morales del regimen general'
+            regimen = self.remove_accents(cr, uid, ids, regimen)
+            invoice_data_parents[0]['Comprobante']['Emisor']['RegimenFiscal'] ={'Regimen': regimen}
             invoice_data_parents[0]['Comprobante']['LugarExpedicion'] = address
         return invoice_data_parents
 

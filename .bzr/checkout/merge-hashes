@@ -1,0 +1,348 @@
+BZR merge-modified list format 1
+file_id: __openerp__.py-20110516202012-ikk3ys9p0xnljlc0-9
+hash: 2fc57a7379bf32d9adaabdc30fa7e7c9d0603658
+
+file_id: es.po-20130404152738-4tyxhefidupd7ykl-1
+hash: 056e7645545d44604d654ad791f176b8faad936d
+
+file_id: es.po-20130630071504-tzjfhn0lbpbkdn1q-2
+hash: b19b1be6d74fd1306bbd72ad00fdd8a94204570f
+
+file_id: es.po-20130402214102-j46o2h76q7wevfrl-2
+hash: 24091ad07f192f1dcb3ed3027357fb7bda1ea352
+
+file_id: es_ve.po-20130603165809-98bz1tgzl0lu6vql-40
+hash: 2f1d98aa8b6e2239e5da72393764b28ac74fe394
+
+file_id: es.po-20130603203916-y21zsgcdhc44zy68-3
+hash: 6ca985ef0ce98833141c821e07e4619305dd07aa
+
+file_id: es.po-20130712231816-2zc0450o8yjd6ug1-2
+hash: c7e463d6333d377210cf99791e83513fcbc642b5
+
+file_id: __init__.py-20140219160749-4qao7mfhoysd2glf-2
+hash: da39a3ee5e6b4b0d3255bfef95601890afd80709
+
+file_id: es_mx.po-20140206013837-1nqgnw1a5imli872-1
+hash: 5b65c37c1c183996f9c781940fa7a6e46eaa6dcc
+
+file_id: es_ve.po-20130603203916-y21zsgcdhc44zy68-5
+hash: 4ca7cbd0eca41ed1374d7ba1bd38e12432fbf3c8
+
+file_id: l10n_mx_partner_addr-20130416220429-t86cngl7p4ipkfha-2
+hash: a78994c3d9a18c96b04d94d4511d9b8e843afa0c
+
+file_id: es.po-20130419231354-c4ye48323z0yiz0h-2
+hash: b33d40112c287337ec344b759f6a52c4b684d193
+
+file_id: ir.model.access.csv-20120314233819-lizwhe6bsq2q7rv1-2
+hash: 395f6fe6acdd7e2a892cf92bdf4c8125ce317377
+
+file_id: es_ve.po-20130603203916-y21zsgcdhc44zy68-8
+hash: 6ca76b5a8d8895f0e8c7a0d7507813a74e0a90ef
+
+file_id: es.po-20130402172615-k72154trzzkijq0m-1
+hash: 14e4e5e72849315ca755779b671d877bd1350314
+
+file_id: sale.py-20130606203640-6b0an417isweh9an-11
+hash: cc140f8ccfb4eea06f8273484b027d50381fab31
+
+file_id: es.po-20130405010449-euf4yzrel4833ids-2
+hash: 1af40c6d4e1abe1f1c26dd1caffbbafb9a7db444
+
+file_id: es_mx.po-20130603203916-y21zsgcdhc44zy68-7
+hash: 6ca76b5a8d8895f0e8c7a0d7507813a74e0a90ef
+
+file_id: es.po-20130402224509-kflb7lufhmoyo52r-2
+hash: f153bf7296b23955b3629e8b1d1c119377668d76
+
+file_id: es_mx.po-20130603203916-y21zsgcdhc44zy68-4
+hash: 4ca7cbd0eca41ed1374d7ba1bd38e12432fbf3c8
+
+file_id: es.po-20130405235102-3laby3kkd3t2xkz4-2
+hash: c8a566164bfc203e75064939720ecd49e300fdb0
+
+file_id: es.po-20130405191406-hm11zd7z6sq8crwd-2
+hash: 473def0cf8872fdb12be129773b2ccfe6e364c78
+
+file_id: es_ve.po-20130603165809-98bz1tgzl0lu6vql-6
+hash: 7e5e2c712671278d711a8305312baf5933643e1c
+
+file_id: es_ve.po-20130603165809-98bz1tgzl0lu6vql-4
+hash: 51382d6936bcd216d24de78a723c372795c6d842
+
+file_id: es_ve.po-20130603165809-98bz1tgzl0lu6vql-2
+hash: 286ab85d08877cfe1ed8252163a578abaca195c2
+
+file_id: es_es.po-20110128050336-mqa976bipv1sm4r4-1
+hash: 998e03495182d8945a0104cc3adcb52edd1f43c0
+
+file_id: icon.png-20140219160749-4qao7mfhoysd2glf-9
+hash: 70a5b1656846a52cdffc4cc9bbcff4d99cc14038
+
+file_id: es_mx.po-20111012222835-ez5tao5f8jxd6t7h-69
+hash: 71d468bfcb0bd442fc277e76665fe4955d0efab6
+
+file_id: es_ve.po-20130603165809-98bz1tgzl0lu6vql-8
+hash: 9fb5b3212f2240cfe9940e29a8235a59e11d3718
+
+file_id: es_ve.po-20130603165809-98bz1tgzl0lu6vql-17
+hash: 24941e1bd3ba2af0b4566c47bfc9339586702696
+
+file_id: __openerp__.py-20140219160749-4qao7mfhoysd2glf-3
+hash: 8fefbd227baf14f7a47461860c5a0dbe310ccba2
+
+file_id: es_ve.po-20130603165809-98bz1tgzl0lu6vql-38
+hash: f8956cf672121e2dd3f1f77ed76b6d405674be69
+
+file_id: __openerp__.py-20110224205714-1avnai0reipbksdn-1
+hash: d764c8e6cbda6094c9793ae319b23eb0589e3854
+
+file_id: es.po-20130402213510-s6awimascub7xv9a-2
+hash: 769815b8312bac7f92229c65f59eba4f60bdeaf6
+
+file_id: invoice.py-20110110223706-ae1p2zp4690pbvta-8
+hash: b5b0130cda05055b814f5724a0b2cbe552ab2e95
+
+file_id: es_mx.po-20130603165809-98bz1tgzl0lu6vql-14
+hash: aae43d5c501c375eb393c00afaaf479c199abcf1
+
+file_id: es_mx.po-20130619232559-53kvxq66ow3gyg7x-7
+hash: a5b87cb6851c015e0d4d1df3dde086b02fc11217
+
+file_id: es.po-20130603203916-y21zsgcdhc44zy68-6
+hash: 2281c3ff30a6d6a5b64d071578643dc39195152d
+
+file_id: es.po-20131113052025-9e47jwkm3sh7r3z7-39
+hash: 21a956b8c2db4dcea2718084032ddec4c7b8e7d5
+
+file_id: ir_attachment_factur-20130114223848-de76pihym0is0f7p-2
+hash: 647d4d7692f98b37443a4b7f370ef58e53279905
+
+file_id: es.po-20131113052025-9e47jwkm3sh7r3z7-33
+hash: 6e641e8946161da89f6b573447817c6e9883aafa
+
+file_id: es.po-20131113052025-9e47jwkm3sh7r3z7-37
+hash: 209f9cb3f6eec54a98f5fb4d09f8bc4c7848fcfd
+
+file_id: es.po-20131113052025-9e47jwkm3sh7r3z7-35
+hash: fa330bcc2422c992b4c9e0bb1eabd0bf37427ec2
+
+file_id: es.po-20111130013829-j956wypmvwd0l5n7-1
+hash: b000f82452a7ddd8c23fef35edc0681b1277d033
+
+file_id: oml.pot-20140213230441-lgvj4oux0e02k1d8-6
+hash: fad3d3caa8df74739b40c31810119211974b96a5
+
+file_id: es_mx.po-20130905214406-qkvngovsaxa78ogq-1
+hash: b5e491a79e2c5c299b6e95428627016efa7cb39c
+
+file_id: es.po-20130712232112-7xeb0oy2ompksaif-2
+hash: 66e2069ed76a0ac873f30f577c602c9f841d4aec
+
+file_id: cityi18nes.po-20130222160841-1l4s4d3v332ayn1s-2
+hash: 7b429318619c0e62dd1660606d3aa3180bb56553
+
+file_id: es_ve.po-20130603165809-98bz1tgzl0lu6vql-20
+hash: 4607985340f9d141cbfb97680e83a9d607ec7f64
+
+file_id: es.po-20130422232942-w6e8fhrpa4resxne-2
+hash: b718bafed56bd1078edf861ebbdd01a6d2b886db
+
+file_id: l10n_mx_facturae_seq-20130416000600-tbp2toz600kbfeai-4
+hash: 18fcd6cc78d720211bdfa8f26c7aaa9c617b6ec8
+
+file_id: es_mx.po-20130603165809-98bz1tgzl0lu6vql-19
+hash: 4607985340f9d141cbfb97680e83a9d607ec7f64
+
+file_id: es_ve.po-20130603165809-98bz1tgzl0lu6vql-18
+hash: 71d468bfcb0bd442fc277e76665fe4955d0efab6
+
+file_id: es_mx.po-20130715213850-mqtz3fzfs2qixu6h-1
+hash: 2641e1f8be4f1d176e992d05ea0d01aff33c9e16
+
+file_id: es_mx.po-20130603165809-98bz1tgzl0lu6vql-12
+hash: 110a38ebd341002f958048d14b9bf0154f31a8b4
+
+file_id: es_ve.po-20130603165809-98bz1tgzl0lu6vql-15
+hash: 605be141e8ef0a400cf364b2f61aaf98cdc04007
+
+file_id: es_ve.po-20130603165809-98bz1tgzl0lu6vql-13
+hash: bd1ee099edeae6dc007098fd7452dbcffa0b44f4
+
+file_id: es_mx.po-20130603165809-98bz1tgzl0lu6vql-16
+hash: 24941e1bd3ba2af0b4566c47bfc9339586702696
+
+file_id: es_ve.po-20130603165809-98bz1tgzl0lu6vql-11
+hash: 3fb0c551c6d4db4cc2e3c63fcccc6d39dbae19b4
+
+file_id: es_ve.po-20130603165809-98bz1tgzl0lu6vql-10
+hash: 74916f2920914faeac58dc801cd995b605072f3d
+
+file_id: es_mx.po-20130603165809-98bz1tgzl0lu6vql-9
+hash: 73f953b263b506ffb88d2ee4b5efdc44cb6e4af0
+
+file_id: es_mx.po-20130603165809-98bz1tgzl0lu6vql-3
+hash: 95ec659702ccd8a6449a3c07813b55d98bd3cc5f
+
+file_id: es_mx.po-20130603165809-98bz1tgzl0lu6vql-1
+hash: 92f2229c9f40fef10b945804c51ba5a12137c2f2
+
+file_id: es.po-20130408214714-q60xyb3ocww0je7f-2
+hash: f634f21136a04d26faaec5b41fe9c8f4306ad891
+
+file_id: es_mx.po-20130603165809-98bz1tgzl0lu6vql-7
+hash: 9fb5b3212f2240cfe9940e29a8235a59e11d3718
+
+file_id: es_mx.po-20130603165809-98bz1tgzl0lu6vql-5
+hash: 37d1a45cbd56e5e9ebb8561918c332f8218f1a5d
+
+file_id: cfdi.xml-20140124183120-dzcqnmh6049mnomi-2
+hash: 4884d54c6be1780df467611fc578555c31320e82
+
+file_id: icon.png-20140213230441-lgvj4oux0e02k1d8-9
+hash: 70a5b1656846a52cdffc4cc9bbcff4d99cc14038
+
+file_id: es.po-20130403170257-a6wqft5fgz2rbfou-2
+hash: ae799ebdb7fc9e00d0e672a4c947464df02d1b1f
+
+file_id: __openerp__.py-20120313193314-tfxgk433ewjk38s5-6
+hash: bdbd59cca2bb3b943b5754c0ebf611e752c7c457
+
+file_id: cfd.xml-20140124183113-c4yfr8rao3oixpt3-2
+hash: cca76ed9f37b1cc6fd90dec8ddc7adfe7aeceb60
+
+file_id: es_ve.po-20130603165809-98bz1tgzl0lu6vql-31
+hash: eecd7db56007511e119ab9ecf5bf4132659baab3
+
+file_id: es_mx.po-20130712231816-2zc0450o8yjd6ug1-3
+hash: c7e463d6333d377210cf99791e83513fcbc642b5
+
+file_id: es.po-20130405012007-rtrnjfqhhg94uh87-2
+hash: a29755ec3b05fd0f134d129dc4ceee30c4b8699d
+
+file_id: es_mx.po-20130807044641-umpvj8mlk9pcfouf-16
+hash: b3e8a99d8944bff98820c1d3bb788ca46b76d9ca
+
+file_id: es.po-20130402184013-fup7pvgp6jqhh9c1-2
+hash: 4e341c4f87e1e290a26b06de29ef11009d9c31de
+
+file_id: es.po-20130619232559-53kvxq66ow3gyg7x-6
+hash: 9e7a8118ef4d14f0c52dae4c914c7660015284c4
+
+file_id: l10n_mx_facturae_seq-20120829212716-26lenu1or3mjre4s-2
+hash: c128804161b6f2c22eba5d165faac9d59fea0744
+
+file_id: es_mx.po-20130603165809-98bz1tgzl0lu6vql-39
+hash: 515968ce13365858fd50b75ef13b8bfc13dfc859
+
+file_id: es_mx.po-20111029180127-xqxwm21yzb08csqg-2
+hash: 09a3dffa41f15d8cdcd187a5e71412514335cecd
+
+file_id: es_ve.po-20130603165809-98bz1tgzl0lu6vql-36
+hash: f679f6fa62c768a39d84b045664fc14a58f464dd
+
+file_id: es.po-20130416234923-exatal22ouyzas4g-2
+hash: 76f23499db313bfa1f253460b599c58b6f285a4b
+
+file_id: es.po-20130603165809-98bz1tgzl0lu6vql-21
+hash: b7ed7c2683a69a65d0ef7ddd188297e2367f3db9
+
+file_id: es_ve.po-20130603165809-98bz1tgzl0lu6vql-33
+hash: 98e40bc5b55f7246741f8c2591e8049043338058
+
+file_id: es_ve.po-20130603165809-98bz1tgzl0lu6vql-35
+hash: 1afe940565cd792986a297997c65c6216e2965a7
+
+file_id: es.po-20130403000529-qyuqjov7mbyscqfi-1
+hash: e59bbb9b6ad1a63c845f36fc9c30dfb1e3925b17
+
+file_id: res_config_view.xml-20131004225147-giogbtua35eryiof-8
+hash: 0ba969f6a1729ad57bc0d02aa975168c7a381714
+
+file_id: es_es.po-20111130013829-j956wypmvwd0l5n7-2
+hash: b320a2125bb48538679981d68e6da989007106e7
+
+file_id: es.po-20131113052025-9e47jwkm3sh7r3z7-43
+hash: b3247581d731ba7fe30f32a763678428b731d934
+
+file_id: es_mx.po-20130603165809-98bz1tgzl0lu6vql-34
+hash: 0f5b83d43a3b833564ade9f739193d88175badc4
+
+file_id: es_mx.po-20130603165809-98bz1tgzl0lu6vql-37
+hash: f8956cf672121e2dd3f1f77ed76b6d405674be69
+
+file_id: es_mx.po-20130603165809-98bz1tgzl0lu6vql-30
+hash: eecd7db56007511e119ab9ecf5bf4132659baab3
+
+file_id: es_mx.po-20130603165809-98bz1tgzl0lu6vql-32
+hash: 98e40bc5b55f7246741f8c2591e8049043338058
+
+file_id: fi.po-20140223070704-c5u6gjlvexa5ne28-12
+hash: 500614fc89c0f32aa7eca2acfd83ef539b34f7d4
+
+file_id: es.po-20130606203640-6b0an417isweh9an-7
+hash: 082d7b8cc10d58d8a3b063611c7af73c1651683a
+
+file_id: es.po-20130807044641-umpvj8mlk9pcfouf-15
+hash: 724036bddb3bec8fa5eccda656de79e5f6d42cbc
+
+file_id: __init__.py-20140213230441-lgvj4oux0e02k1d8-2
+hash: da39a3ee5e6b4b0d3255bfef95601890afd80709
+
+file_id: __openerp__.py-20140213230441-lgvj4oux0e02k1d8-3
+hash: b158239d7e52a54fe81e28ba3deb9cb9b8fbf29f
+
+file_id: __openerp__.py-20130606203640-6b0an417isweh9an-3
+hash: f3cffea3d94bb8d2ab04dc9e13500d2423209802
+
+file_id: oml.pot-20140219160749-4qao7mfhoysd2glf-6
+hash: fad3d3caa8df74739b40c31810119211974b96a5
+
+file_id: stock_view.xml-20110624061045-84asfjfho776nn39-12
+hash: 75a23b4e3857b84dae2d484cd9abb9a73e437561
+
+file_id: l10n_mx_invoice_date-20120810154513-75adrwtve1ryh97h-2
+hash: 2d41e39cf08043cf202e842a4665975dfb6f35f5
+
+file_id: es_mx.po-20130603165809-98bz1tgzl0lu6vql-22
+hash: acceab5559773cad5c2439f103d1799b74cfe9b5
+
+file_id: es_ve.po-20130603165809-98bz1tgzl0lu6vql-27
+hash: 3abe18c964f815505a155e5f05b9e65145fa48f2
+
+file_id: es_ve.po-20130603165809-98bz1tgzl0lu6vql-25
+hash: 8c0e5914f78cc5faf1d35aec9cc5e84ed669143e
+
+file_id: es_mx.po-20130603165809-98bz1tgzl0lu6vql-26
+hash: 3abe18c964f815505a155e5f05b9e65145fa48f2
+
+file_id: es_ve.po-20130603165809-98bz1tgzl0lu6vql-23
+hash: db0c4c62e6e4ef2f88e0f1334bbd6af473bc1e9a
+
+file_id: es_mx.po-20130603165809-98bz1tgzl0lu6vql-24
+hash: 8c0e5914f78cc5faf1d35aec9cc5e84ed669143e
+
+file_id: es_mx.po-20130603165809-98bz1tgzl0lu6vql-28
+hash: dc5492420c4d21f480331ee9c0d2d43c31140633
+
+file_id: es.po-20131113052025-9e47jwkm3sh7r3z7-41
+hash: ea04134bc6a5a6dd83f25959632e9519ecd7a61b
+
+file_id: es_ve.po-20130603165809-98bz1tgzl0lu6vql-29
+hash: 93cb88ad8a6eba899034c4bbf0b29a7cbd530ee5
+
+file_id: es_mx.po-20130606203640-6b0an417isweh9an-8
+hash: 3f09ada72cc8f3b820fbad95a2f943ca30672920
+
+file_id: ir_attachment_factur-20130111174035-k1070i3faazpplr7-7
+hash: 55f43ef1fe61e17cef6ee9b83fec50dac32f6dc7
+
+file_id: ir_attachment_factur-20130111174035-k1070i3faazpplr7-6
+hash: b7599c7070fa32b34c731bf15ccb1c0ab613944d
+
+file_id: invoice.py-20130222010050-rvs9k6bwzhf7q3lf-4
+hash: 1b579db42465f3a028b3d25dc5ad6a8cfa88e72f
+
+file_id: invoice.py-20130111174035-k1070i3faazpplr7-4
+hash: bdc7fc097551dd5390cd6185840698b498794ff6

@@ -1,0 +1,488 @@
+# -*- encoding: utf-8 -*-
+###########################################################################
+#    Module Writen to OpenERP, Open Source Management Solution
+#
+#    Copyright (c) 2010 Vauxoo - http://www.vauxoo.com/
+#    All Rights Reserved.
+#    info Vauxoo (info@vauxoo.com)
+############################################################################
+#    Coded by: moylop260 (moylop260@vauxoo.com)
+#    Launchpad Project Manager for Publication: Nhomar Hernandez - nhomar@vauxoo.com
+############################################################################
+#
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU Affero General Public License as
+#    published by the Free Software Foundation, either version 3 of the
+#    License, or (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU Affero General Public License for more details.
+#
+#    You should have received a copy of the GNU Affero General Public License
+#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+##############################################################################
+
+from openerp.tools.translate import _
+from openerp.osv import fields, osv, orm
+from openerp import tools
+from openerp import netsvc
+from openerp.tools.misc import ustr
+import wizard
+import base64
+import xml.dom.minidom
+import time
+import StringIO
+import csv
+import tempfile
+import os
+import sys
+import codecs
+from xml.dom import minidom
+import urllib
+import pooler
+from openerp.tools.translate import _
+from datetime import datetime, timedelta
+from pytz import timezone
+import pytz
+import time
+from io import BytesIO
+from xml.etree import ElementTree
+from openerp import tools
+from base64 import b64encode
+from base64 import b64decode
+try:
+    from SOAPpy import WSDL
+    from SOAPpy import Types
+except:
+    print "Package SOAPpy missed"#Install with "pip install SOAPPy"
+    pass
+try:
+    import zipfile
+except:
+    print "Package zipfile missed"#TODO: Warning message
+    pass
+try:
+    from lxml import etree
+except:
+    print "Package lxml missing"#TODO: Warning message
+try:
+    import qrcode
+except:
+    print "Package qrcode missing"#TODO: Warning message
+
+class ir_attachment_facturae_mx(osv.Model):
+    _inherit = 'ir.attachment.facturae.mx'
+
+    def _get_type(self, cr, uid, ids=None, context=None):
+        if context is None:
+            context = {}
+        types = super(ir_attachment_facturae_mx, self)._get_type(
+            cr, uid, ids, context=context)
+        types.extend([
+            ('cfdi32_pac_sf', 'CFDI 3.2 Solución Factible'),
+        ])
+        return types
+    
+    def get_driver_fc_sign(self):
+        factura_mx_type__fc = super(ir_attachment_facturae_mx, self).get_driver_fc_sign()
+        if factura_mx_type__fc == None:
+            factura_mx_type__fc = {}
+        factura_mx_type__fc.update({'cfdi32_pac_sf': self._upload_ws_file})
+        return factura_mx_type__fc
+    
+    def get_driver_fc_cancel(self):
+        factura_mx_type__fc = super(ir_attachment_facturae_mx, self).get_driver_fc_cancel()
+        if factura_mx_type__fc == None:
+            factura_mx_type__fc = {}
+        factura_mx_type__fc.update({'cfdi32_pac_sf': self.sf_cancel})
+        return factura_mx_type__fc
+        
+    _columns = {
+        'type': fields.selection(_get_type, 'Type', type='char', size=64,
+                                 required=True, readonly=True, help="Type of Electronic Invoice"),
+    }
+    
+    def sf_cancel(self, cr, uid, ids, context=None):
+        if context is None:
+            context = {}
+        msg = ''
+        #certificate_obj = self.pool.get('res.company.facturae.certificate')
+        pac_params_obj = self.pool.get('params.pac')
+        invoice_obj = self.pool.get('account.invoice')
+        certificate_obj = self.pool.get('account.invoice.company_id.facturae.certificate')
+        for ir_attachment_facturae_mx_id in self.browse(cr, uid, ids, context=context):
+            status = False
+            invoice = ir_attachment_facturae_mx_id.invoice_id
+            pac_params_ids = pac_params_obj.search(cr, uid, [
+                ('method_type', '=', 'pac_sf_cancelar'),
+                ('company_id', '=', invoice.company_emitter_id.id),
+                ('active', '=', True),
+            ], limit=1, context=context)
+            pac_params_id = pac_params_ids and pac_params_ids[0] or False
+            if pac_params_id:
+                file_globals = invoice_obj._get_file_globals(cr, uid, [invoice.id], context=context)
+                pac_params_brw = pac_params_obj.browse(cr, uid, [pac_params_id], context=context)[0]
+                user = pac_params_brw.user
+                password = pac_params_brw.password
+                wsdl_url = pac_params_brw.url_webservice
+                namespace = pac_params_brw.namespace
+                wsdl_client = False
+                wsdl_client = WSDL.SOAPProxy(wsdl_url, namespace)
+                fname_cer_no_pem = file_globals['fname_cer']
+                cerCSD = fname_cer_no_pem and base64.encodestring(open(fname_cer_no_pem, "r").read()) or ''
+                fname_key_no_pem = file_globals['fname_key']
+                keyCSD = fname_key_no_pem and base64.encodestring(open(fname_key_no_pem, "r").read()) or ''
+                zip = False  # Validar si es un comprimido zip, con la extension del archivo
+                contrasenaCSD = file_globals.get('password', '')
+                uuids = invoice.cfdi_folio_fiscal  # cfdi_folio_fiscal
+                params = [user, password, uuids, cerCSD, keyCSD, contrasenaCSD]
+                wsdl_client.soapproxy.config.dumpSOAPOut = 0
+                wsdl_client.soapproxy.config.dumpSOAPIn = 0
+                wsdl_client.soapproxy.config.debug = 0
+                wsdl_client.soapproxy.config.dict_encoding = 'UTF-8'
+                ### Inicio Manosear
+                rfc = invoice.company_emitter_id.vat
+                params = [user, password, rfc, uuids, cerCSD, contrasenaCSD]
+                result = {}
+                result['resultados'] = {}
+                result['value'] = wsdl_client.cancelar(*params)
+                raise orm.except_orm(_('Warning'), _('%s') % (result['value'])) 
+                codigo_cancel = result['status']
+                status_cancel = result['resultados']['status']
+                uuid_nvo = result['resultados']['uuid']
+                mensaje_cancel = _(tools.ustr(result['mensaje']))
+                msg_nvo = result['resultados']['mensaje']
+                status_uuid = result['resultados']['statusUUID']
+                folio_cancel = result['resultados']['uuid']
+                ### Fin Manosear
+                if codigo_cancel == '200' and status_cancel == '200' and status_uuid == '201':
+                    msg +=  mensaje_cancel + _('\n- The process of cancellation\
+                    has completed correctly.\n- The uuid cancelled is:') + folio_cancel
+                    invoice_obj.write(cr, uid, [invoice.id], {'cfdi_fecha_cancelacion': time.strftime('%Y-%m-%d %H:%M:%S')})
+                    status = True
+                else:
+                    raise orm.except_orm(_('Warning'), _('Cancel Code: %s.-Status code %s.-Status UUID: %s.-Folio Cancel: %s.-Cancel Message: %s.-Answer Message: %s.') % (
+                        codigo_cancel, status_cancel, status_uuid, folio_cancel, mensaje_cancel, msg_nvo))
+            else:
+                msg = _('Not found information of webservices of PAC, verify that the configuration of PAC is correct')
+        return {'message': msg, 'status_uuid': status_uuid, 'status': status}
+    
+    def _upload_ws_file(self, cr, uid, ids, fdata=None, context=None):
+        """
+        @params fdata : File.xml codification in base64
+        """
+        if context is None:
+            context = {}
+        invoice_obj = self.pool.get('account.invoice')
+        pac_params_obj = invoice_obj.pool.get('params.pac')
+        for ir_attachment_facturae_mx_id in self.browse(cr, uid, ids, context=context):
+            invoice = ir_attachment_facturae_mx_id.invoice_id
+            comprobante = invoice_obj._get_type_sequence(
+                cr, uid, [invoice.id], context=context)
+            cfd_data = base64.decodestring(fdata or invoice_obj.fdata)
+            xml_res_str = xml.dom.minidom.parseString(cfd_data)
+            xml_res_addenda = invoice_obj.add_addenta_xml(
+                cr, uid, xml_res_str, comprobante, context=context)
+            xml_res_str_addenda = xml_res_addenda.toxml('UTF-8')
+            xml_res_str_addenda = xml_res_str_addenda.replace(codecs.BOM_UTF8, '')
+            
+            if tools.config['test_report_directory']:#TODO: Add if test-enabled:
+                ir_attach_facturae_mx_file_input = ir_attachment_facturae_mx_id.file_input and ir_attachment_facturae_mx_id.file_input or False
+                fname_suffix = ir_attach_facturae_mx_file_input and ir_attach_facturae_mx_file_input.datas_fname or ''
+                open( os.path.join(tools.config['test_report_directory'], 'l10n_mx_facturae_pac_sf' + '_' + \
+                  'before_upload' + '-' + fname_suffix), 'wb+').write( xml_res_str_addenda )
+            compr = xml_res_addenda.getElementsByTagName(comprobante)[0]
+            date = compr.attributes['fecha'].value
+            date_format = datetime.strptime(
+                date, '%Y-%m-%dT%H:%M:%S').strftime('%Y-%m-%d')
+            context['date'] = date_format
+            invoice_ids = [invoice.id]
+            file = False
+            msg = ''
+            cfdi_xml = False
+            pac_params_ids = pac_params_obj.search(cr, uid, [
+                ('method_type', '=', 'pac_sf_firmar'), (
+                    'company_id', '=', invoice.company_emitter_id.id), (
+                        'active', '=', True)], limit=1, context=context)
+            if pac_params_ids:
+                pac_params = pac_params_obj.browse(
+                    cr, uid, pac_params_ids, context)[0]
+                user = pac_params.user
+                password = pac_params.password
+                wsdl_url = pac_params.url_webservice
+                namespace = pac_params.namespace
+                #url = 'https://solucionfactible.com/ws/services/Timbrado'
+                #testing_url = 'http://testing.solucionfactible.com/ws/services/Timbrado'
+                #if (wsdl_url == url) or (wsdl_url == testing_url):
+                #    pass
+                #else:
+                #    raise osv.except_osv(_('Warning'), _('Web Service URL \
+                #       o PAC incorrect'))
+                #if namespace == 'http://timbrado.ws.cfdi.solucionfactible.com':
+                #    pass
+                #else:
+                #    raise osv.except_osv(_('Warning'), _(
+                #        'Namespace of PAC incorrect'))
+                resultado = {}
+                resultado['resultados'] = {}
+                resultado['resultados']['debug'] = 'Starting'
+                resultado['resultados']['uuid'] = '0'
+                if 'testing' in wsdl_url: msg += _(u'WARNING, SIGNED IN TEST!!!!\n\n')
+                wsdl_client = WSDL.SOAPProxy(wsdl_url, namespace)
+                if True: #if wsdl_client:
+                    file_globals = invoice_obj._get_file_globals(cr, uid, invoice_ids, context=context)
+                    fname_cer_no_pem = file_globals['fname_cer']
+                    cerCSD = fname_cer_no_pem and base64.encodestring(open(fname_cer_no_pem, "r").read()) or ''
+                    fname_key_no_pem = file_globals['fname_key']
+                    keyCSD = fname_key_no_pem and base64.encodestring(open(fname_key_no_pem, "r").read()) or ''
+                    ### Added by Krzytoval - Made the file a zip file
+                    file_ready=BytesIO() #Create a file in memory
+                    file_zipped=zipfile.ZipFile(file_ready,'w') #Make the file a ZipFile
+                    file_zipped.writestr("file", cfd_data, zipfile.ZIP_DEFLATED) #Add an Archive to the file
+                    file_zipped.close() #Close the zip file so it wrtes the directory
+                    file_ready.seek(0) #Move to the beginning of the file
+                    file_encoded=b64encode(file_ready.read()) #Encode in 64
+                    cfdi = Types.base64BinaryType(file_encoded) #Convert to XML object
+                    
+                    ### Done with the zipping
+
+                    zip = True  # Validar si es un comprimido zip, con la extension del archivo
+                    contrasenaCSD = file_globals.get('password', '')
+                    params = [ user, password, cfdi]
+                    wsdl_client.soapproxy.config.dumpSOAPOut = 0
+                    wsdl_client.soapproxy.config.dumpSOAPIn = 0
+                    wsdl_client.soapproxy.config.debug = 0
+                    wsdl_client.soapproxy.config.dict_encoding = 'UTF-8'
+                    #resultado = wsdl_client.getCfdi(*params) #Removed for compatibility
+                    ### This code was added by Kryztoval to add support for Best Solutions
+                    resultado['respuesta_ws'] = wsdl_client.getCfdi(*params)
+                    try:  #Compare result with a number (errors are numbers from 0 to 999)
+#                        raise orm.except_orm(_('Warning'), _('%s') % (resultado['respuesta_ws']))  ### DEBUG
+#                        try:
+#                            resultado['resultados']['debug']=resultado['respuesta_ws']
+#                            int(resultado['respuesta_ws'])
+#                        except:
+                            #It is not an int, so it is a propwer zipfile
+                        resultado['resultados']['status']=resultado['respuesta_ws']
+                        if len(resultado['respuesta_ws']) < 6:
+                            raise
+                        #while len(resultado['respuesta_ws'])%4!= 0:
+                        #    resultado['respuesta_ws']+='='
+                        resultado['resultados']['debug']='1.0'
+                        file_result_xml_zip=BytesIO(b64decode(resultado['respuesta_ws']))       # decode the resulting string
+                        resultado['resultados']['debug']=resultado['respuesta_ws']
+#                        resultado['resultados']['debug']='1.1'
+                        file_unzipped=zipfile.ZipFile(file_result_xml_zip,'r')     # open zip file in memory
+                        resultado['resultados']['debug']='1.2'
+                        file_result_xml=file_unzipped.open('SIGN_file')            # extract resulting file
+                        resultado['resultados']['debug']='1.3'
+                        file_result=ElementTree.parse(file_result_xml)             # generate xml object
+                        resultado['resultados']['debug']='1.4'
+                        file_result_xml=file_unzipped.open('SIGN_file')            # extract resulting file
+                        resultado['resultados']['debug']='1.5'
+                        file_result_xml_str=file_result_xml.read()
+                        resultado['resultados']['debug']='1.6'
+
+                        try:
+                            resultado['resultados']['debug']='2'
+                            xml_root=file_result.getroot()                             # get root element
+                            xml_timbre=xml_root.findall("*/{http://www.sat.gob.mx/TimbreFiscalDigital}TimbreFiscalDigital")[0]   #request the part we are interested in
+                            resultado['resultados']['selloSAT']=xml_timbre.get("selloSAT")
+                            resultado['resultados']['certificadoSAT']=xml_timbre.get("noCertificadoSAT")  
+                            file_result_xml=file_unzipped.open('SIGN_file')
+                            resultado['resultados']['cfdiTimbrado']=b64encode(file_result_xml.read())
+    
+                            #este es el XSLT del SAT para generar la Cadena Original. no es elegante pero funciona.
+                            xslt_base64 = """PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4NCjx4c2w6c3R5bGVzaGVldCB2ZXJzaW9uPSIyLjAiIHhtbG5zOnhzbD0iaHR0cDovL3d3dy53My5vcmcvMTk5OS9YU0wvVHJhbnNmb3JtIiB4bWxuczp4cz0iaHR0cDovL3d3dy53My5vcmcvMjAwMS9YTUxTY2hlbWEiIHhtbG5zOmZu
+				PSJodHRwOi8vd3d3LnczLm9yZy8yMDA1L3hwYXRoLWZ1bmN0aW9ucyIgeG1sbnM6Y2ZkaT0iaHR0cDovL3d3dy5zYXQuZ29iLm14L2NmZC8zIiB4bWxuczplY2M9Imh0dHA6Ly93d3cuc2F0LmdvYi5teC9lY2MiIHhtbG5zOnBzZ2VjZmQ9Imh0dHA6Ly93d3cuc2F0LmdvYi5teC9wc2dlY2ZkIiB4bWxu
+				czpkb25hdD0iaHR0cDovL3d3dy5zYXQuZ29iLm14L2RvbmF0IiB4bWxuczpkaXZpc2FzPSJodHRwOi8vd3d3LnNhdC5nb2IubXgvZGl2aXNhcyIgeG1sbnM6ZGV0YWxsaXN0YT0iaHR0cDovL3d3dy5zYXQuZ29iLm14L2RldGFsbGlzdGEiIHhtbG5zOmVjYj0iaHR0cDovL3d3dy5zYXQuZ29iLm14L2Vj
+				YiIgeG1sbnM6aW1wbG9jYWw9Imh0dHA6Ly93d3cuc2F0LmdvYi5teC9pbXBsb2NhbCIgeG1sbnM6dGVyY2Vyb3M9Imh0dHA6Ly93d3cuc2F0LmdvYi5teC90ZXJjZXJvcyIgeG1sbnM6aWVkdT0iaHR0cDovL3d3dy5zYXQuZ29iLm14L2llZHUiIHhtbG5zOnZlbnRhdmVoaWN1bG9zPSJodHRwOi8vd3d3
+				LnNhdC5nb2IubXgvdmVudGF2ZWhpY3Vsb3MiIHhtbG5zOnBmaWM9Imh0dHA6Ly93d3cuc2F0LmdvYi5teC9wZmljIiB4bWxuczp0cGU9Imh0dHA6Ly93d3cuc2F0LmdvYi5teC9UdXJpc3RhUGFzYWplcm9FeHRyYW5qZXJvIiB4bWxuczpsZXllbmRhc0Zpc2M9Imh0dHA6Ly93d3cuc2F0LmdvYi5teC9s
+				ZXllbmRhc0Zpc2NhbGVzIiB4bWxuczpzcGVpPSJodHRwOi8vd3d3LnNhdC5nb2IubXgvc3BlaSI+DQoJPCEtLSBDb24gZWwgc2lndWllbnRlIG3DqXRvZG8gc2UgZXN0YWJsZWNlIHF1ZSBsYSBzYWxpZGEgZGViZXLDoSBzZXIgZW4gdGV4dG8gLS0+DQoJPCEtLSBJbnRlZ3JhY2nDs24gZGUgY29tcGxl
+				bWVudG8gU1BFSSAxNC0wOC0yMDEyPiAtLT4NCgk8eHNsOm91dHB1dCBtZXRob2Q9InRleHQiIHZlcnNpb249IjEuMCIgZW5jb2Rpbmc9IlVURi04IiBpbmRlbnQ9Im5vIi8+DQoJPCEtLQ0KCQlFbiBlc3RhIHNlY2Npw7NuIHNlIGRlZmluZSBsYSBpbmNsdXNpw7NuIGRlIGxhcyBwbGFudGlsbGFzIGRl
+				IHV0aWxlcsOtYXMgcGFyYSBjb2xhcHNhciBlc3BhY2lvcw0KCS0tPg0KCTx4c2w6aW5jbHVkZSBocmVmPSJodHRwOi8vd3d3LnNhdC5nb2IubXgvc2l0aW9faW50ZXJuZXQvY2ZkLzIvY2FkZW5hb3JpZ2luYWxfMl8wL3V0aWxlcmlhcy54c2x0Ii8+DQoJPCEtLSANCgkJRW4gZXN0YSBzZWNjacOzbiBz
+				ZSBkZWZpbmUgbGEgaW5jbHVzacOzbiBkZSBsYXMgZGVtw6FzIHBsYW50aWxsYXMgZGUgdHJhbnNmb3JtYWNpw7NuIHBhcmEgDQoJCWxhIGdlbmVyYWNpw7NuIGRlIGxhcyBjYWRlbmFzIG9yaWdpbmFsZXMgZGUgbG9zIGNvbXBsZW1lbnRvcyBmaXNjYWxlcyANCgktLT4NCgk8eHNsOmluY2x1ZGUgaHJl
+				Zj0iaHR0cDovL3d3dy5zYXQuZ29iLm14L3NpdGlvX2ludGVybmV0L2NmZC9lY2MvZWNjLnhzbHQiLz4NCgk8eHNsOmluY2x1ZGUgaHJlZj0iaHR0cDovL3d3dy5zYXQuZ29iLm14L3NpdGlvX2ludGVybmV0L2NmZC9wc2dlY2ZkL3BzZ2VjZmQueHNsdCIvPg0KCTx4c2w6aW5jbHVkZSBocmVmPSJodHRw
+				Oi8vd3d3LnNhdC5nb2IubXgvc2l0aW9faW50ZXJuZXQvY2ZkL2RvbmF0L2RvbmF0MTEueHNsdCIvPg0KCTx4c2w6aW5jbHVkZSBocmVmPSJodHRwOi8vd3d3LnNhdC5nb2IubXgvc2l0aW9faW50ZXJuZXQvY2ZkL2RpdmlzYXMvZGl2aXNhcy54c2x0Ii8+DQoJPHhzbDppbmNsdWRlIGhyZWY9Imh0dHA6
+				Ly93d3cuc2F0LmdvYi5teC9zaXRpb19pbnRlcm5ldC9jZmQvZWNiL2VjYi54c2x0Ii8+DQoJPHhzbDppbmNsdWRlIGhyZWY9Imh0dHA6Ly93d3cuc2F0LmdvYi5teC9zaXRpb19pbnRlcm5ldC9jZmQvZGV0YWxsaXN0YS9kZXRhbGxpc3RhLnhzbHQiLz4NCgk8eHNsOmluY2x1ZGUgaHJlZj0iaHR0cDov
+				L3d3dy5zYXQuZ29iLm14L3NpdGlvX2ludGVybmV0L2NmZC9pbXBsb2NhbC9pbXBsb2NhbC54c2x0Ii8+DQoJPHhzbDppbmNsdWRlIGhyZWY9Imh0dHA6Ly93d3cuc2F0LmdvYi5teC9zaXRpb19pbnRlcm5ldC9jZmQvdGVyY2Vyb3MvdGVyY2Vyb3MxMS54c2x0Ii8+DQoJPHhzbDppbmNsdWRlIGhyZWY9
+				Imh0dHA6Ly93d3cuc2F0LmdvYi5teC9zaXRpb19pbnRlcm5ldC9jZmQvaWVkdS9pZWR1LnhzbHQiLz4NCgk8eHNsOmluY2x1ZGUgaHJlZj0iaHR0cDovL3d3dy5zYXQuZ29iLm14L3NpdGlvX2ludGVybmV0L2NmZC92ZW50YXZlaGljdWxvcy92ZW50YXZlaGljdWxvcy54c2x0Ii8+DQoJPHhzbDppbmNs
+				dWRlIGhyZWY9Imh0dHA6Ly93d3cuc2F0LmdvYi5teC9zaXRpb19pbnRlcm5ldC9jZmQvcGZpYy9wZmljLnhzbHQiLz4NCgk8eHNsOmluY2x1ZGUgaHJlZj0iaHR0cDovL3d3dy5zYXQuZ29iLm14L3NpdGlvX2ludGVybmV0L2NmZC9UdXJpc3RhUGFzYWplcm9FeHRyYW5qZXJvL1R1cmlzdGFQYXNhamVy
+				b0V4dHJhbmplcm8ueHNsdCIvPg0KCTx4c2w6aW5jbHVkZSBocmVmPSJodHRwOi8vd3d3LnNhdC5nb2IubXgvc2l0aW9faW50ZXJuZXQvY2ZkL2xleWVuZGFzRmlzY2FsZXMvbGV5ZW5kYXNGaXNjLnhzbHQiLz4NCgk8eHNsOmluY2x1ZGUgaHJlZj0iaHR0cDovL3d3dy5zYXQuZ29iLm14L3NpdGlvX2lu
+				dGVybmV0L2NmZC9zcGVpL3NwZWkueHNsdCIvPg0KCTwhLS0gQXF1w60gaW5pY2lhbW9zIGVsIHByb2Nlc2FtaWVudG8gZGUgbGEgY2FkZW5hIG9yaWdpbmFsIGNvbiBzdSB8IGluaWNpYWwgeSBlbCB0ZXJtaW5hZG9yIHx8IC0tPg0KCTx4c2w6dGVtcGxhdGUgbWF0Y2g9Ii8iPnw8eHNsOmFwcGx5LXRl
+				bXBsYXRlcyBzZWxlY3Q9Ii9jZmRpOkNvbXByb2JhbnRlIi8+fHw8L3hzbDp0ZW1wbGF0ZT4NCgk8IS0tICBBcXXDrSBpbmljaWFtb3MgZWwgcHJvY2VzYW1pZW50byBkZSBsb3MgZGF0b3MgaW5jbHVpZG9zIGVuIGVsIGNvbXByb2JhbnRlIC0tPg0KCTx4c2w6dGVtcGxhdGUgbWF0Y2g9ImNmZGk6Q29t
+				cHJvYmFudGUiPg0KCQk8IS0tIEluaWNpYW1vcyBlbCB0cmF0YW1pZW50byBkZSBsb3MgYXRyaWJ1dG9zIGRlIGNvbXByb2JhbnRlIC0tPg0KCQk8eHNsOmNhbGwtdGVtcGxhdGUgbmFtZT0iUmVxdWVyaWRvIj4NCgkJCTx4c2w6d2l0aC1wYXJhbSBuYW1lPSJ2YWxvciIgc2VsZWN0PSIuL0B2ZXJzaW9u
+				Ii8+DQoJCTwveHNsOmNhbGwtdGVtcGxhdGU+DQoJCTx4c2w6Y2FsbC10ZW1wbGF0ZSBuYW1lPSJSZXF1ZXJpZG8iPg0KCQkJPHhzbDp3aXRoLXBhcmFtIG5hbWU9InZhbG9yIiBzZWxlY3Q9Ii4vQGZlY2hhIi8+DQoJCTwveHNsOmNhbGwtdGVtcGxhdGU+DQoJCTx4c2w6Y2FsbC10ZW1wbGF0ZSBuYW1l
+				PSJSZXF1ZXJpZG8iPg0KCQkJPHhzbDp3aXRoLXBhcmFtIG5hbWU9InZhbG9yIiBzZWxlY3Q9Ii4vQHRpcG9EZUNvbXByb2JhbnRlIi8+DQoJCTwveHNsOmNhbGwtdGVtcGxhdGU+DQoJCTx4c2w6Y2FsbC10ZW1wbGF0ZSBuYW1lPSJSZXF1ZXJpZG8iPg0KCQkJPHhzbDp3aXRoLXBhcmFtIG5hbWU9InZh
+				bG9yIiBzZWxlY3Q9Ii4vQGZvcm1hRGVQYWdvIi8+DQoJCTwveHNsOmNhbGwtdGVtcGxhdGU+DQoJCTx4c2w6Y2FsbC10ZW1wbGF0ZSBuYW1lPSJPcGNpb25hbCI+DQoJCQk8eHNsOndpdGgtcGFyYW0gbmFtZT0idmFsb3IiIHNlbGVjdD0iLi9AY29uZGljaW9uZXNEZVBhZ28iLz4NCgkJPC94c2w6Y2Fs
+				bC10ZW1wbGF0ZT4NCgkJPHhzbDpjYWxsLXRlbXBsYXRlIG5hbWU9IlJlcXVlcmlkbyI+DQoJCQk8eHNsOndpdGgtcGFyYW0gbmFtZT0idmFsb3IiIHNlbGVjdD0iLi9Ac3ViVG90YWwiLz4NCgkJPC94c2w6Y2FsbC10ZW1wbGF0ZT4NCgkJPHhzbDpjYWxsLXRlbXBsYXRlIG5hbWU9Ik9wY2lvbmFsIj4N
+				CgkJCTx4c2w6d2l0aC1wYXJhbSBuYW1lPSJ2YWxvciIgc2VsZWN0PSIuL0BkZXNjdWVudG8iLz4NCgkJPC94c2w6Y2FsbC10ZW1wbGF0ZT4NCgkJPHhzbDpjYWxsLXRlbXBsYXRlIG5hbWU9Ik9wY2lvbmFsIj4NCgkJCTx4c2w6d2l0aC1wYXJhbSBuYW1lPSJ2YWxvciIgc2VsZWN0PSIuL0BUaXBvQ2Ft
+				YmlvIi8+DQoJCTwveHNsOmNhbGwtdGVtcGxhdGU+DQoJCTx4c2w6Y2FsbC10ZW1wbGF0ZSBuYW1lPSJPcGNpb25hbCI+DQoJCQk8eHNsOndpdGgtcGFyYW0gbmFtZT0idmFsb3IiIHNlbGVjdD0iLi9ATW9uZWRhIi8+DQoJCTwveHNsOmNhbGwtdGVtcGxhdGU+DQoJCTx4c2w6Y2FsbC10ZW1wbGF0ZSBu
+				YW1lPSJSZXF1ZXJpZG8iPg0KCQkJPHhzbDp3aXRoLXBhcmFtIG5hbWU9InZhbG9yIiBzZWxlY3Q9Ii4vQHRvdGFsIi8+DQoJCTwveHNsOmNhbGwtdGVtcGxhdGU+DQoJCTx4c2w6Y2FsbC10ZW1wbGF0ZSBuYW1lPSJSZXF1ZXJpZG8iPg0KCQkJPHhzbDp3aXRoLXBhcmFtIG5hbWU9InZhbG9yIiBzZWxl
+				Y3Q9Ii4vQG1ldG9kb0RlUGFnbyIvPg0KCQk8L3hzbDpjYWxsLXRlbXBsYXRlPg0KCQk8eHNsOmNhbGwtdGVtcGxhdGUgbmFtZT0iUmVxdWVyaWRvIj4NCgkJCTx4c2w6d2l0aC1wYXJhbSBuYW1lPSJ2YWxvciIgc2VsZWN0PSIuL0BMdWdhckV4cGVkaWNpb24iLz4NCgkJPC94c2w6Y2FsbC10ZW1wbGF0
+				ZT4NCgkJPHhzbDpjYWxsLXRlbXBsYXRlIG5hbWU9Ik9wY2lvbmFsIj4NCgkJCTx4c2w6d2l0aC1wYXJhbSBuYW1lPSJ2YWxvciIgc2VsZWN0PSIuL0BOdW1DdGFQYWdvIi8+DQoJCTwveHNsOmNhbGwtdGVtcGxhdGU+DQoJCTx4c2w6Y2FsbC10ZW1wbGF0ZSBuYW1lPSJPcGNpb25hbCI+DQoJCQk8eHNs
+				OndpdGgtcGFyYW0gbmFtZT0idmFsb3IiIHNlbGVjdD0iLi9ARm9saW9GaXNjYWxPcmlnIi8+DQoJCTwveHNsOmNhbGwtdGVtcGxhdGU+DQoJCTx4c2w6Y2FsbC10ZW1wbGF0ZSBuYW1lPSJPcGNpb25hbCI+DQoJCQk8eHNsOndpdGgtcGFyYW0gbmFtZT0idmFsb3IiIHNlbGVjdD0iLi9AU2VyaWVGb2xp
+				b0Zpc2NhbE9yaWciLz4NCgkJPC94c2w6Y2FsbC10ZW1wbGF0ZT4NCgkJPHhzbDpjYWxsLXRlbXBsYXRlIG5hbWU9Ik9wY2lvbmFsIj4NCgkJCTx4c2w6d2l0aC1wYXJhbSBuYW1lPSJ2YWxvciIgc2VsZWN0PSIuL0BGZWNoYUZvbGlvRmlzY2FsT3JpZyIvPg0KCQk8L3hzbDpjYWxsLXRlbXBsYXRlPg0K
+				CQk8eHNsOmNhbGwtdGVtcGxhdGUgbmFtZT0iT3BjaW9uYWwiPg0KCQkJPHhzbDp3aXRoLXBhcmFtIG5hbWU9InZhbG9yIiBzZWxlY3Q9Ii4vQE1vbnRvRm9saW9GaXNjYWxPcmlnIi8+DQoJCTwveHNsOmNhbGwtdGVtcGxhdGU+DQoJCTwhLS0NCgkJCUxsYW1hZGFzIHBhcmEgcHJvY2VzYXIgYWwgbG9z
+				IHN1YiBub2RvcyBkZWwgY29tcHJvYmFudGUNCgkJLS0+DQoJCTx4c2w6YXBwbHktdGVtcGxhdGVzIHNlbGVjdD0iLi9jZmRpOkVtaXNvciIvPg0KCQk8eHNsOmFwcGx5LXRlbXBsYXRlcyBzZWxlY3Q9Ii4vY2ZkaTpSZWNlcHRvciIvPg0KCQk8eHNsOmFwcGx5LXRlbXBsYXRlcyBzZWxlY3Q9Ii4vY2Zk
+				aTpDb25jZXB0b3MiLz4NCgkJPHhzbDphcHBseS10ZW1wbGF0ZXMgc2VsZWN0PSIuL2NmZGk6SW1wdWVzdG9zIi8+DQoJCTx4c2w6YXBwbHktdGVtcGxhdGVzIHNlbGVjdD0iLi9jZmRpOkNvbXBsZW1lbnRvIi8+DQoJPC94c2w6dGVtcGxhdGU+DQoJPCEtLSBNYW5lamFkb3IgZGUgbm9kb3MgdGlwbyBF
+				bWlzb3IgLS0+DQoJPHhzbDp0ZW1wbGF0ZSBtYXRjaD0iY2ZkaTpFbWlzb3IiPg0KCQk8IS0tIEluaWNpYW1vcyBlbCB0cmF0YW1pZW50byBkZSBsb3MgYXRyaWJ1dG9zIGRlbCBFbWlzb3IgLS0+DQoJCTx4c2w6Y2FsbC10ZW1wbGF0ZSBuYW1lPSJSZXF1ZXJpZG8iPg0KCQkJPHhzbDp3aXRoLXBhcmFt
+				IG5hbWU9InZhbG9yIiBzZWxlY3Q9Ii4vQHJmYyIvPg0KCQk8L3hzbDpjYWxsLXRlbXBsYXRlPg0KCQk8eHNsOmNhbGwtdGVtcGxhdGUgbmFtZT0iT3BjaW9uYWwiPg0KCQkJPHhzbDp3aXRoLXBhcmFtIG5hbWU9InZhbG9yIiBzZWxlY3Q9Ii4vQG5vbWJyZSIvPg0KCQk8L3hzbDpjYWxsLXRlbXBsYXRl
+				Pg0KCQk8IS0tDQoJCQlMbGFtYWRhcyBwYXJhIHByb2Nlc2FyIGFsIGxvcyBzdWIgbm9kb3MgZGVsIGNvbXByb2JhbnRlDQoJCS0tPg0KCQk8eHNsOmFwcGx5LXRlbXBsYXRlcyBzZWxlY3Q9Ii4vY2ZkaTpEb21pY2lsaW9GaXNjYWwiLz4NCgkJPHhzbDppZiB0ZXN0PSIuL2NmZGk6RXhwZWRpZG9FbiI+
+				DQoJCQk8eHNsOmNhbGwtdGVtcGxhdGUgbmFtZT0iRG9taWNpbGlvIj4NCgkJCQk8eHNsOndpdGgtcGFyYW0gbmFtZT0iTm9kbyIgc2VsZWN0PSIuL2NmZGk6RXhwZWRpZG9FbiIvPg0KCQkJPC94c2w6Y2FsbC10ZW1wbGF0ZT4NCgkJPC94c2w6aWY+DQoJCTx4c2w6Zm9yLWVhY2ggc2VsZWN0PSIuL2Nm
+				ZGk6UmVnaW1lbkZpc2NhbCI+DQoJCQk8eHNsOmNhbGwtdGVtcGxhdGUgbmFtZT0iUmVxdWVyaWRvIj4NCgkJCQk8eHNsOndpdGgtcGFyYW0gbmFtZT0idmFsb3IiIHNlbGVjdD0iLi9AUmVnaW1lbiIvPg0KCQkJPC94c2w6Y2FsbC10ZW1wbGF0ZT4NCgkJPC94c2w6Zm9yLWVhY2g+DQoJPC94c2w6dGVt
+				cGxhdGU+DQoJPCEtLSBNYW5lamFkb3IgZGUgbm9kb3MgdGlwbyBSZWNlcHRvciAtLT4NCgk8eHNsOnRlbXBsYXRlIG1hdGNoPSJjZmRpOlJlY2VwdG9yIj4NCgkJPCEtLSBJbmljaWFtb3MgZWwgdHJhdGFtaWVudG8gZGUgbG9zIGF0cmlidXRvcyBkZWwgUmVjZXB0b3IgLS0+DQoJCTx4c2w6Y2FsbC10
+				ZW1wbGF0ZSBuYW1lPSJSZXF1ZXJpZG8iPg0KCQkJPHhzbDp3aXRoLXBhcmFtIG5hbWU9InZhbG9yIiBzZWxlY3Q9Ii4vQHJmYyIvPg0KCQk8L3hzbDpjYWxsLXRlbXBsYXRlPg0KCQk8eHNsOmNhbGwtdGVtcGxhdGUgbmFtZT0iT3BjaW9uYWwiPg0KCQkJPHhzbDp3aXRoLXBhcmFtIG5hbWU9InZhbG9y
+				IiBzZWxlY3Q9Ii4vQG5vbWJyZSIvPg0KCQk8L3hzbDpjYWxsLXRlbXBsYXRlPg0KCQk8IS0tDQoJCQlMbGFtYWRhcyBwYXJhIHByb2Nlc2FyIGFsIGxvcyBzdWIgbm9kb3MgZGVsIFJlY2VwdG9yDQoJCS0tPg0KCQk8eHNsOmlmIHRlc3Q9Ii4vY2ZkaTpEb21pY2lsaW8iPg0KCQkJPHhzbDpjYWxsLXRl
+				bXBsYXRlIG5hbWU9IkRvbWljaWxpbyI+DQoJCQkJPHhzbDp3aXRoLXBhcmFtIG5hbWU9Ik5vZG8iIHNlbGVjdD0iLi9jZmRpOkRvbWljaWxpbyIvPg0KCQkJPC94c2w6Y2FsbC10ZW1wbGF0ZT4NCgkJPC94c2w6aWY+DQoJPC94c2w6dGVtcGxhdGU+DQoJPCEtLSBNYW5lamFkb3IgZGUgbm9kb3MgdGlw
+				byBDb25jZXB0b3MgLS0+DQoJPHhzbDp0ZW1wbGF0ZSBtYXRjaD0iY2ZkaTpDb25jZXB0b3MiPg0KCQk8IS0tIExsYW1hZGEgcGFyYSBwcm9jZXNhciBsb3MgZGlzdGludG9zIG5vZG9zIHRpcG8gQ29uY2VwdG8gLS0+DQoJCTx4c2w6Zm9yLWVhY2ggc2VsZWN0PSIuL2NmZGk6Q29uY2VwdG8iPg0KCQkJ
+				PHhzbDphcHBseS10ZW1wbGF0ZXMgc2VsZWN0PSIuIi8+DQoJCTwveHNsOmZvci1lYWNoPg0KCTwveHNsOnRlbXBsYXRlPg0KCTwhLS0gTWFuZWphZG9yIGRlIG5vZG9zIHRpcG8gSW1wdWVzdG9zIC0tPg0KCTx4c2w6dGVtcGxhdGUgbWF0Y2g9ImNmZGk6SW1wdWVzdG9zIj4NCgkJPHhzbDpmb3ItZWFj
+				aCBzZWxlY3Q9Ii4vY2ZkaTpSZXRlbmNpb25lcy9jZmRpOlJldGVuY2lvbiI+DQoJCQk8eHNsOmFwcGx5LXRlbXBsYXRlcyBzZWxlY3Q9Ii4iLz4NCgkJPC94c2w6Zm9yLWVhY2g+DQoJCTx4c2w6Y2FsbC10ZW1wbGF0ZSBuYW1lPSJPcGNpb25hbCI+DQoJCQk8eHNsOndpdGgtcGFyYW0gbmFtZT0idmFs
+				b3IiIHNlbGVjdD0iLi9AdG90YWxJbXB1ZXN0b3NSZXRlbmlkb3MiLz4NCgkJPC94c2w6Y2FsbC10ZW1wbGF0ZT4NCgkJPHhzbDpmb3ItZWFjaCBzZWxlY3Q9Ii4vY2ZkaTpUcmFzbGFkb3MvY2ZkaTpUcmFzbGFkbyI+DQoJCQk8eHNsOmFwcGx5LXRlbXBsYXRlcyBzZWxlY3Q9Ii4iLz4NCgkJPC94c2w6
+				Zm9yLWVhY2g+DQoJCTx4c2w6Y2FsbC10ZW1wbGF0ZSBuYW1lPSJPcGNpb25hbCI+DQoJCQk8eHNsOndpdGgtcGFyYW0gbmFtZT0idmFsb3IiIHNlbGVjdD0iLi9AdG90YWxJbXB1ZXN0b3NUcmFzbGFkYWRvcyIvPg0KCQk8L3hzbDpjYWxsLXRlbXBsYXRlPg0KCTwveHNsOnRlbXBsYXRlPg0KCTwhLS0g
+				TWFuZWphZG9yIGRlIG5vZG9zIHRpcG8gUmV0ZW5jaW9uIC0tPg0KCTx4c2w6dGVtcGxhdGUgbWF0Y2g9ImNmZGk6UmV0ZW5jaW9uIj4NCgkJPHhzbDpjYWxsLXRlbXBsYXRlIG5hbWU9IlJlcXVlcmlkbyI+DQoJCQk8eHNsOndpdGgtcGFyYW0gbmFtZT0idmFsb3IiIHNlbGVjdD0iLi9AaW1wdWVzdG8i
+				Lz4NCgkJPC94c2w6Y2FsbC10ZW1wbGF0ZT4NCgkJPHhzbDpjYWxsLXRlbXBsYXRlIG5hbWU9IlJlcXVlcmlkbyI+DQoJCQk8eHNsOndpdGgtcGFyYW0gbmFtZT0idmFsb3IiIHNlbGVjdD0iLi9AaW1wb3J0ZSIvPg0KCQk8L3hzbDpjYWxsLXRlbXBsYXRlPg0KCTwveHNsOnRlbXBsYXRlPg0KCTwhLS0g
+				TWFuZWphZG9yIGRlIG5vZG9zIHRpcG8gVHJhc2xhZG8gLS0+DQoJPHhzbDp0ZW1wbGF0ZSBtYXRjaD0iY2ZkaTpUcmFzbGFkbyI+DQoJCTx4c2w6Y2FsbC10ZW1wbGF0ZSBuYW1lPSJSZXF1ZXJpZG8iPg0KCQkJPHhzbDp3aXRoLXBhcmFtIG5hbWU9InZhbG9yIiBzZWxlY3Q9Ii4vQGltcHVlc3RvIi8+
+				DQoJCTwveHNsOmNhbGwtdGVtcGxhdGU+DQoJCTx4c2w6Y2FsbC10ZW1wbGF0ZSBuYW1lPSJSZXF1ZXJpZG8iPg0KCQkJPHhzbDp3aXRoLXBhcmFtIG5hbWU9InZhbG9yIiBzZWxlY3Q9Ii4vQHRhc2EiLz4NCgkJPC94c2w6Y2FsbC10ZW1wbGF0ZT4NCgkJPHhzbDpjYWxsLXRlbXBsYXRlIG5hbWU9IlJl
+				cXVlcmlkbyI+DQoJCQk8eHNsOndpdGgtcGFyYW0gbmFtZT0idmFsb3IiIHNlbGVjdD0iLi9AaW1wb3J0ZSIvPg0KCQk8L3hzbDpjYWxsLXRlbXBsYXRlPg0KCTwveHNsOnRlbXBsYXRlPg0KCTwhLS0gTWFuZWphZG9yIGRlIG5vZG9zIHRpcG8gQ29tcGxlbWVudG8gLS0+DQoJPHhzbDp0ZW1wbGF0ZSBt
+				YXRjaD0iY2ZkaTpDb21wbGVtZW50byI+DQoJCTx4c2w6Zm9yLWVhY2ggc2VsZWN0PSIuLyoiPg0KCQkJPHhzbDphcHBseS10ZW1wbGF0ZXMgc2VsZWN0PSIuIi8+DQoJCTwveHNsOmZvci1lYWNoPg0KCTwveHNsOnRlbXBsYXRlPg0KCTwhLS0NCgkJTWFuZWphZG9yIGRlIG5vZG9zIHRpcG8gQ29uY2Vw
+				dG8NCgktLT4NCgk8eHNsOnRlbXBsYXRlIG1hdGNoPSJjZmRpOkNvbmNlcHRvIj4NCgkJPCEtLSBJbmljaWFtb3MgZWwgdHJhdGFtaWVudG8gZGUgbG9zIGF0cmlidXRvcyBkZWwgQ29uY2VwdG8gLS0+DQoJCTx4c2w6Y2FsbC10ZW1wbGF0ZSBuYW1lPSJSZXF1ZXJpZG8iPg0KCQkJPHhzbDp3aXRoLXBh
+				cmFtIG5hbWU9InZhbG9yIiBzZWxlY3Q9Ii4vQGNhbnRpZGFkIi8+DQoJCTwveHNsOmNhbGwtdGVtcGxhdGU+DQoJCTx4c2w6Y2FsbC10ZW1wbGF0ZSBuYW1lPSJSZXF1ZXJpZG8iPg0KCQkJPHhzbDp3aXRoLXBhcmFtIG5hbWU9InZhbG9yIiBzZWxlY3Q9Ii4vQHVuaWRhZCIvPg0KCQk8L3hzbDpjYWxs
+				LXRlbXBsYXRlPg0KCQk8eHNsOmNhbGwtdGVtcGxhdGUgbmFtZT0iT3BjaW9uYWwiPg0KCQkJPHhzbDp3aXRoLXBhcmFtIG5hbWU9InZhbG9yIiBzZWxlY3Q9Ii4vQG5vSWRlbnRpZmljYWNpb24iLz4NCgkJPC94c2w6Y2FsbC10ZW1wbGF0ZT4NCgkJPHhzbDpjYWxsLXRlbXBsYXRlIG5hbWU9IlJlcXVl
+				cmlkbyI+DQoJCQk8eHNsOndpdGgtcGFyYW0gbmFtZT0idmFsb3IiIHNlbGVjdD0iLi9AZGVzY3JpcGNpb24iLz4NCgkJPC94c2w6Y2FsbC10ZW1wbGF0ZT4NCgkJPHhzbDpjYWxsLXRlbXBsYXRlIG5hbWU9IlJlcXVlcmlkbyI+DQoJCQk8eHNsOndpdGgtcGFyYW0gbmFtZT0idmFsb3IiIHNlbGVjdD0i
+				Li9AdmFsb3JVbml0YXJpbyIvPg0KCQk8L3hzbDpjYWxsLXRlbXBsYXRlPg0KCQk8eHNsOmNhbGwtdGVtcGxhdGUgbmFtZT0iUmVxdWVyaWRvIj4NCgkJCTx4c2w6d2l0aC1wYXJhbSBuYW1lPSJ2YWxvciIgc2VsZWN0PSIuL0BpbXBvcnRlIi8+DQoJCTwveHNsOmNhbGwtdGVtcGxhdGU+DQoJCTwhLS0N
+				CgkJCU1hbmVqbyBkZSBsb3MgZGlzdGludG9zIHN1YiBub2RvcyBkZSBpbmZvcm1hY2nDs24gYWR1YW5lcmEgZGUgZm9ybWEgaW5kaXN0aW50YSANCgkJCWEgc3UgZ3JhZG8gZGUgZGVwZW5kZW5jaWENCgkJLS0+DQoJCTx4c2w6Zm9yLWVhY2ggc2VsZWN0PSIuLy9jZmRpOkluZm9ybWFjaW9uQWR1YW5l
+				cmEiPg0KCQkJPHhzbDphcHBseS10ZW1wbGF0ZXMgc2VsZWN0PSIuIi8+DQoJCTwveHNsOmZvci1lYWNoPg0KCQk8IS0tIExsYW1hZGEgYWwgbWFuZWphZG9yIGRlIG5vZG9zIGRlIEN1ZW50YSBQcmVkaWFsIGVuIGNhc28gZGUgZXhpc3RpciAtLT4NCgkJPHhzbDppZiB0ZXN0PSIuL2NmZGk6Q3VlbnRh
+				UHJlZGlhbCI+DQoJCQk8eHNsOmFwcGx5LXRlbXBsYXRlcyBzZWxlY3Q9Ii4vY2ZkaTpDdWVudGFQcmVkaWFsIi8+DQoJCTwveHNsOmlmPg0KCQk8IS0tIExsYW1hZGEgYWwgbWFuZWphZG9yIGRlIG5vZG9zIGRlIENvbXBsZW1lbnRvQ29uY2VwdG8gZW4gY2FzbyBkZSBleGlzdGlyIC0tPg0KCQk8eHNs
+				OmlmIHRlc3Q9Ii4vY2ZkaTpDb21wbGVtZW50b0NvbmNlcHRvIj4NCgkJCTx4c2w6YXBwbHktdGVtcGxhdGVzIHNlbGVjdD0iLi9jZmRpOkNvbXBsZW1lbnRvQ29uY2VwdG8iLz4NCgkJPC94c2w6aWY+DQoJPC94c2w6dGVtcGxhdGU+DQoJPCEtLSBNYW5lamFkb3IgZGUgbm9kb3MgdGlwbyBJbmZvcm1h
+				Y2nDs24gQWR1YW5lcmEgLS0+DQoJPHhzbDp0ZW1wbGF0ZSBtYXRjaD0iY2ZkaTpJbmZvcm1hY2lvbkFkdWFuZXJhIj4NCgkJPCEtLSBNYW5lam8gZGUgbG9zIGF0cmlidXRvcyBkZSBsYSBpbmZvcm1hY2nDs24gYWR1YW5lcmEgLS0+DQoJCTx4c2w6Y2FsbC10ZW1wbGF0ZSBuYW1lPSJSZXF1ZXJpZG8i
+				Pg0KCQkJPHhzbDp3aXRoLXBhcmFtIG5hbWU9InZhbG9yIiBzZWxlY3Q9Ii4vQG51bWVybyIvPg0KCQk8L3hzbDpjYWxsLXRlbXBsYXRlPg0KCQk8eHNsOmNhbGwtdGVtcGxhdGUgbmFtZT0iUmVxdWVyaWRvIj4NCgkJCTx4c2w6d2l0aC1wYXJhbSBuYW1lPSJ2YWxvciIgc2VsZWN0PSIuL0BmZWNoYSIv
+				Pg0KCQk8L3hzbDpjYWxsLXRlbXBsYXRlPg0KCQk8eHNsOmNhbGwtdGVtcGxhdGUgbmFtZT0iT3BjaW9uYWwiPg0KCQkJPHhzbDp3aXRoLXBhcmFtIG5hbWU9InZhbG9yIiBzZWxlY3Q9Ii4vQGFkdWFuYSIvPg0KCQk8L3hzbDpjYWxsLXRlbXBsYXRlPg0KCTwveHNsOnRlbXBsYXRlPg0KCTwhLS0gTWFu
+				ZWphZG9yIGRlIG5vZG9zIHRpcG8gSW5mb3JtYWNpw7NuIEN1ZW50YVByZWRpYWwgLS0+DQoJPHhzbDp0ZW1wbGF0ZSBtYXRjaD0iY2ZkaTpDdWVudGFQcmVkaWFsIj4NCgkJPHhzbDpjYWxsLXRlbXBsYXRlIG5hbWU9IlJlcXVlcmlkbyI+DQoJCQk8eHNsOndpdGgtcGFyYW0gbmFtZT0idmFsb3IiIHNl
+				bGVjdD0iLi9AbnVtZXJvIi8+DQoJCTwveHNsOmNhbGwtdGVtcGxhdGU+DQoJPC94c2w6dGVtcGxhdGU+DQoJPCEtLSBNYW5lamFkb3IgZGUgbm9kb3MgdGlwbyBDb21wbGVtZW50b0NvbmNlcHRvIC0tPg0KCTx4c2w6dGVtcGxhdGUgbWF0Y2g9ImNmZGk6Q29tcGxlbWVudG9Db25jZXB0byI+DQoJCTx4
+				c2w6Zm9yLWVhY2ggc2VsZWN0PSIuLyoiPg0KCQkJPHhzbDphcHBseS10ZW1wbGF0ZXMgc2VsZWN0PSIuIi8+DQoJCTwveHNsOmZvci1lYWNoPg0KCTwveHNsOnRlbXBsYXRlPg0KCTwhLS0gTWFuZWphZG9yIGRlIG5vZG9zIHRpcG8gRG9taWNpbGlvIGZpc2NhbCAtLT4NCgk8eHNsOnRlbXBsYXRlIG1h
+				dGNoPSJjZmRpOkRvbWljaWxpb0Zpc2NhbCI+DQoJCTwhLS0gSW5pY2lhbW9zIGVsIHRyYXRhbWllbnRvIGRlIGxvcyBhdHJpYnV0b3MgZGVsIERvbWljaWxpbyBGaXNjYWwgLS0+DQoJCTx4c2w6Y2FsbC10ZW1wbGF0ZSBuYW1lPSJSZXF1ZXJpZG8iPg0KCQkJPHhzbDp3aXRoLXBhcmFtIG5hbWU9InZh
+				bG9yIiBzZWxlY3Q9Ii4vQGNhbGxlIi8+DQoJCTwveHNsOmNhbGwtdGVtcGxhdGU+DQoJCTx4c2w6Y2FsbC10ZW1wbGF0ZSBuYW1lPSJPcGNpb25hbCI+DQoJCQk8eHNsOndpdGgtcGFyYW0gbmFtZT0idmFsb3IiIHNlbGVjdD0iLi9Abm9FeHRlcmlvciIvPg0KCQk8L3hzbDpjYWxsLXRlbXBsYXRlPg0K
+				CQk8eHNsOmNhbGwtdGVtcGxhdGUgbmFtZT0iT3BjaW9uYWwiPg0KCQkJPHhzbDp3aXRoLXBhcmFtIG5hbWU9InZhbG9yIiBzZWxlY3Q9Ii4vQG5vSW50ZXJpb3IiLz4NCgkJPC94c2w6Y2FsbC10ZW1wbGF0ZT4NCgkJPHhzbDpjYWxsLXRlbXBsYXRlIG5hbWU9Ik9wY2lvbmFsIj4NCgkJCTx4c2w6d2l0
+				aC1wYXJhbSBuYW1lPSJ2YWxvciIgc2VsZWN0PSIuL0Bjb2xvbmlhIi8+DQoJCTwveHNsOmNhbGwtdGVtcGxhdGU+DQoJCTx4c2w6Y2FsbC10ZW1wbGF0ZSBuYW1lPSJPcGNpb25hbCI+DQoJCQk8eHNsOndpdGgtcGFyYW0gbmFtZT0idmFsb3IiIHNlbGVjdD0iLi9AbG9jYWxpZGFkIi8+DQoJCTwveHNs
+				OmNhbGwtdGVtcGxhdGU+DQoJCTx4c2w6Y2FsbC10ZW1wbGF0ZSBuYW1lPSJPcGNpb25hbCI+DQoJCQk8eHNsOndpdGgtcGFyYW0gbmFtZT0idmFsb3IiIHNlbGVjdD0iLi9AcmVmZXJlbmNpYSIvPg0KCQk8L3hzbDpjYWxsLXRlbXBsYXRlPg0KCQk8eHNsOmNhbGwtdGVtcGxhdGUgbmFtZT0iUmVxdWVy
+				aWRvIj4NCgkJCTx4c2w6d2l0aC1wYXJhbSBuYW1lPSJ2YWxvciIgc2VsZWN0PSIuL0BtdW5pY2lwaW8iLz4NCgkJPC94c2w6Y2FsbC10ZW1wbGF0ZT4NCgkJPHhzbDpjYWxsLXRlbXBsYXRlIG5hbWU9IlJlcXVlcmlkbyI+DQoJCQk8eHNsOndpdGgtcGFyYW0gbmFtZT0idmFsb3IiIHNlbGVjdD0iLi9A
+				ZXN0YWRvIi8+DQoJCTwveHNsOmNhbGwtdGVtcGxhdGU+DQoJCTx4c2w6Y2FsbC10ZW1wbGF0ZSBuYW1lPSJSZXF1ZXJpZG8iPg0KCQkJPHhzbDp3aXRoLXBhcmFtIG5hbWU9InZhbG9yIiBzZWxlY3Q9Ii4vQHBhaXMiLz4NCgkJPC94c2w6Y2FsbC10ZW1wbGF0ZT4NCgkJPHhzbDpjYWxsLXRlbXBsYXRl
+				IG5hbWU9IlJlcXVlcmlkbyI+DQoJCQk8eHNsOndpdGgtcGFyYW0gbmFtZT0idmFsb3IiIHNlbGVjdD0iLi9AY29kaWdvUG9zdGFsIi8+DQoJCTwveHNsOmNhbGwtdGVtcGxhdGU+DQoJPC94c2w6dGVtcGxhdGU+DQoJPCEtLSBNYW5lamFkb3IgZGUgbm9kb3MgdGlwbyBEb21pY2lsaW8gLS0+DQoJPHhz
+				bDp0ZW1wbGF0ZSBuYW1lPSJEb21pY2lsaW8iPg0KCQk8eHNsOnBhcmFtIG5hbWU9Ik5vZG8iLz4NCgkJPCEtLSBJbmljaWFtb3MgZWwgdHJhdGFtaWVudG8gZGUgbG9zIGF0cmlidXRvcyBkZWwgRG9taWNpbGlvICAtLT4NCgkJPHhzbDpjYWxsLXRlbXBsYXRlIG5hbWU9Ik9wY2lvbmFsIj4NCgkJCTx4
+				c2w6d2l0aC1wYXJhbSBuYW1lPSJ2YWxvciIgc2VsZWN0PSIkTm9kby9AY2FsbGUiLz4NCgkJPC94c2w6Y2FsbC10ZW1wbGF0ZT4NCgkJPHhzbDpjYWxsLXRlbXBsYXRlIG5hbWU9Ik9wY2lvbmFsIj4NCgkJCTx4c2w6d2l0aC1wYXJhbSBuYW1lPSJ2YWxvciIgc2VsZWN0PSIkTm9kby9Abm9FeHRlcmlv
+				ciIvPg0KCQk8L3hzbDpjYWxsLXRlbXBsYXRlPg0KCQk8eHNsOmNhbGwtdGVtcGxhdGUgbmFtZT0iT3BjaW9uYWwiPg0KCQkJPHhzbDp3aXRoLXBhcmFtIG5hbWU9InZhbG9yIiBzZWxlY3Q9IiROb2RvL0Bub0ludGVyaW9yIi8+DQoJCTwveHNsOmNhbGwtdGVtcGxhdGU+DQoJCTx4c2w6Y2FsbC10ZW1w
+				bGF0ZSBuYW1lPSJPcGNpb25hbCI+DQoJCQk8eHNsOndpdGgtcGFyYW0gbmFtZT0idmFsb3IiIHNlbGVjdD0iJE5vZG8vQGNvbG9uaWEiLz4NCgkJPC94c2w6Y2FsbC10ZW1wbGF0ZT4NCgkJPHhzbDpjYWxsLXRlbXBsYXRlIG5hbWU9Ik9wY2lvbmFsIj4NCgkJCTx4c2w6d2l0aC1wYXJhbSBuYW1lPSJ2
+				YWxvciIgc2VsZWN0PSIkTm9kby9AbG9jYWxpZGFkIi8+DQoJCTwveHNsOmNhbGwtdGVtcGxhdGU+DQoJCTx4c2w6Y2FsbC10ZW1wbGF0ZSBuYW1lPSJPcGNpb25hbCI+DQoJCQk8eHNsOndpdGgtcGFyYW0gbmFtZT0idmFsb3IiIHNlbGVjdD0iJE5vZG8vQHJlZmVyZW5jaWEiLz4NCgkJPC94c2w6Y2Fs
+				bC10ZW1wbGF0ZT4NCgkJPHhzbDpjYWxsLXRlbXBsYXRlIG5hbWU9Ik9wY2lvbmFsIj4NCgkJCTx4c2w6d2l0aC1wYXJhbSBuYW1lPSJ2YWxvciIgc2VsZWN0PSIkTm9kby9AbXVuaWNpcGlvIi8+DQoJCTwveHNsOmNhbGwtdGVtcGxhdGU+DQoJCTx4c2w6Y2FsbC10ZW1wbGF0ZSBuYW1lPSJPcGNpb25h
+				bCI+DQoJCQk8eHNsOndpdGgtcGFyYW0gbmFtZT0idmFsb3IiIHNlbGVjdD0iJE5vZG8vQGVzdGFkbyIvPg0KCQk8L3hzbDpjYWxsLXRlbXBsYXRlPg0KCQk8eHNsOmNhbGwtdGVtcGxhdGUgbmFtZT0iUmVxdWVyaWRvIj4NCgkJCTx4c2w6d2l0aC1wYXJhbSBuYW1lPSJ2YWxvciIgc2VsZWN0PSIkTm9k
+				by9AcGFpcyIvPg0KCQk8L3hzbDpjYWxsLXRlbXBsYXRlPg0KCQk8eHNsOmNhbGwtdGVtcGxhdGUgbmFtZT0iT3BjaW9uYWwiPg0KCQkJPHhzbDp3aXRoLXBhcmFtIG5hbWU9InZhbG9yIiBzZWxlY3Q9IiROb2RvL0Bjb2RpZ29Qb3N0YWwiLz4NCgkJPC94c2w6Y2FsbC10ZW1wbGF0ZT4NCgk8L3hzbDp0
+				ZW1wbGF0ZT4NCjwveHNsOnN0eWxlc2hlZXQ+DQo="""
+                            xslRoot = etree.fromstring(base64.decodestring(xslt_base64))
+                            transform = etree.XSLT(xslRoot)
+                            xmlRoot = etree.fromstring(file_result_xml_str)
+                            transRoot = transform(xmlRoot)
+                            resultado['resultados']['cadenaOriginal']=str(transRoot)
+                        except:
+                            raise orm.except_orm(_('Warning'), _('Error creando cadena original'))
+
+
+                        try:
+                            resultado['resultados']['debug']='3.0'
+                            xml_emisor=xml_root.findall("{http://www.sat.gob.mx/cfd/3}Emisor")[0]
+                            resultado['resultados']['debug']='3.1'
+                            xml_receptor=xml_root.findall("{http://www.sat.gob.mx/cfd/3}Receptor")[0]
+                            resultado['resultados']['debug']='3.2'
+                            qrcode_txt="?re="+xml_emisor.get("rfc")+"&rr="+xml_receptor.get("rfc")+"&tt="+"{:0>17.6f}".format(float(xml_root.get("total")))+"&id="+xml_timbre.get("UUID")
+                            resultado['resultados']['debug']='3.3'
+                            qr = qrcode.QRCode(version=4, error_correction=qrcode.constants.ERROR_CORRECT_Q, box_size=10, border=4)
+                            resultado['resultados']['debug']='3.4'
+                            qr.add_data(qrcode_txt)
+                            resultado['resultados']['debug']='3.5'
+                            qr.make()
+                            resultado['resultados']['debug']='3.6'
+                            img=qr.make_image()
+                            resultado['resultados']['debug']='3.7'
+                            img_data=BytesIO()
+                            resultado['resultados']['debug']='3.8'
+                            img.save(img_data, 'PNG')
+                            resultado['resultados']['debug']='3.9'
+                            img_data.seek(0)
+                            resultado['resultados']['qrCode']=b64encode(img_data.read())
+                        except:
+                            raise orm.except_orm(_('Warning'), _('Error creando QR'))
+
+                        try:
+                            resultado['resultados']['debug']='4.0'
+                            resultado['resultados']['fechaTimbrado']=xml_timbre.get("FechaTimbrado") 
+                            resultado['resultados']['debug']='4.1'
+                            resultado['resultados']['uuid']=xml_timbre.get("UUID")
+                        except:
+                            raise orm.except_orm(_('Warning'), _('Error extrayendo Fecha y UUID'))
+                        resultado['resultados']['status']='200'
+                        resultado['status']='200'
+                    except:
+                        resultado['resultados']['status']=resultado['respuesta_ws']
+                        resultado['status']='311'
+                    finally:
+                        resultado['resultados']['mensaje']='Usted esta usando Best Soluciones'
+
+                    ### now the result object should be compatible
+                    htz = int(invoice_obj._get_time_zone(cr, uid, [ir_attachment_facturae_mx_id.invoice_id.id], context=context))
+                    mensaje = _(tools.ustr(resultado['resultados']))      
+#                    raise orm.except_orm(_('Warning'), _('%s') % (mensaje)) 
+
+                    resultados_mensaje = resultado['resultados']['mensaje']
+                    folio_fiscal = resultado['resultados']['uuid']
+                    codigo_timbrado = resultado['status']
+                    codigo_validacion = resultado['resultados']['status']
+
+                    if codigo_timbrado=='311' or codigo_validacion == '311':
+                        #Added extra code to show the real error
+                        raise osv.except_osv(_('Warning'), _('Code 311 BestSol: %s DebugCode: %s') % (codigo_validacion, resultado['resultados']['debug'])) 
+                    elif codigo_timbrado == '312' or codigo_validacion == '312':
+                        raise osv.except_osv(_('Warning'), _('Failed to consult the SAT.\nCode 312'))
+                    elif codigo_timbrado == '200' and codigo_validacion == '200':
+                        fecha_timbrado = resultado['resultados']['fechaTimbrado']
+                        #fecha_timbrado = fecha_timbrado and time.strftime('%Y-%m-%d %H:%M:%S', time.strptime(fecha_timbrado[:19], '%Y-%m-%dT%H:%M:%S')) or False
+                        #fecha_timbrado = fecha_timbrado and datetime.strptime(fecha_timbrado, '%Y-%m-%d %H:%M:%S') + timedelta(hours=htz) or False
+                        cfdi_data = {
+                            'cfdi_cbb': resultado['resultados']['qrCode'],
+                            'cfdi_sello': resultado['resultados']['selloSAT'],
+                            'cfdi_no_certificado': resultado['resultados']['certificadoSAT'],
+                            'cfdi_cadena_original': resultado['resultados']['cadenaOriginal'] or False,
+                            'cfdi_fecha_timbrado': fecha_timbrado,
+                            'cfdi_xml': base64.decodestring(resultado['resultados']['cfdiTimbrado'] or ''),  # este se necesita en uno que no es base64
+                            'cfdi_folio_fiscal': resultado['resultados']['uuid'] or '',
+                            'pac_id': pac_params.id,
+                        }
+                        #raise orm.except_orm(_('Warning'), _('%s') % ( cfdi_data))  ### DEBUG
+                        msg += mensaje + "." + resultados_mensaje + \
+                            " Folio Fiscal: " + folio_fiscal + "."
+                        msg += _(
+                                u"\nMake Sure to the file really has generated correctly to the SAT\nhttps://www.consulta.sat.gob.mx/sicofi_web/moduloECFD_plus/ValidadorCFDI/Validador%20cfdi.html")
+                        if cfdi_data.get('cfdi_xml', False):
+                        #    url_pac = '</"%s"><!--Para validar el XML CFDI puede descargar el certificado del PAC desde la siguiente liga: https://solucionfactible.com/cfdi/00001000000102699425.zip-->' % (comprobante)
+                        #    cfdi_data['cfdi_xml'] = cfdi_data['cfdi_xml'].replace('</"%s">' % (comprobante), url_pac)
+                            file = base64.encodestring(cfdi_data['cfdi_xml'] or '')
+                            invoice_obj.cfdi_data_write(cr, uid, [invoice.id], cfdi_data, context=context)
+                            #cfdi_xml = cfdi_data.pop('cfdi_xml')
+                            cfdi_xml = cfdi_data.get('cfdi_xml')
+                        if cfdi_xml:
+                            invoice_obj.write(cr, uid, [invoice.id], cfdi_data)
+                        #    cfdi_data['cfdi_xml'] = cfdi_xml
+                        else:
+                            msg += _(u"Can't extract the file XML of PAC")
+                    else:
+                        raise orm.except_orm(_('Warning'), _('Stamped Code: %s.-Validation code %s.-Folio Fiscal: %s.-Stamped Message: %s.-Validation Message: %s.') % (
+                            codigo_timbrado, codigo_validacion, folio_fiscal, mensaje, resultados_mensaje))
+            else:
+                msg += 'Not found information from web services of PAC, verify that the configuration of PAC is correct'
+                raise osv.except_osv(_('Warning'), _(
+                    'Did not find information from web services of PAC, verify that the configuration of PAC is correct'))
+            return {'file': file, 'msg': msg, 'cfdi_xml': cfdi_data['cfdi_xml']}
+
+# vim:expandtab:smartindent:tabstop=4:softtabstop=4:shiftwidth=4:

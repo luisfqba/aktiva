@@ -1,1 +1,24 @@
 BZR conflict list format 1
+path: email_template_multicompany/i18n/fi.po.moved
+type: duplicate
+action: Moved existing file to
+conflict_path: email_template_multicompany/i18n/fi.po
+conflict_file_id: fi.po-20140223070704-c5u6gjlvexa5ne28-12
+
+path: l10n_mx_upload_ftp/i18n/es_MX.po.moved
+type: duplicate
+action: Moved existing file to
+conflict_path: l10n_mx_upload_ftp/i18n/es_MX.po
+conflict_file_id: es_mx.po-20140206013837-1nqgnw1a5imli872-1
+
+path: oml.moved
+type: duplicate
+action: Moved existing file to
+conflict_path: oml
+conflict_file_id: oml-20140213230441-lgvj4oux0e02k1d8-1
+
+path: oml_all.moved
+type: duplicate
+action: Moved existing file to
+conflict_path: oml_all
+conflict_file_id: oml_all-20140219160749-4qao7mfhoysd2glf-1

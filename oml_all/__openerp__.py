@@ -144,6 +144,7 @@
                 "process",
                 "sale_stock",
                 "account_voucher",
+                "crm_partner_assign",
                 "hr_timesheet_invoice",
                 "l10n_hn",
                 "marketing_campaign_crm_demo",
@@ -230,7 +231,7 @@ This module will install for you:
   
   -  oml module
   
-  - And all oficial modules (account, stock, mrp, purchase, sale...)
+  - And all oficial modules (account, stock, mrp...)
                     """,
     "website" : "http://www.vauxoo.com",
     "category" : "Localization/Application",

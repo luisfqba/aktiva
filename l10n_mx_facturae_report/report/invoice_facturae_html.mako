@@ -1,4 +1,4 @@
-<!DOCTYPE>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 <html>
 <head>
     <style type="text/css">
@@ -52,7 +52,7 @@
                                             ${address_emitter.l10n_mx_street4 or ''|entity}
                                             ${address_emitter.street2 or ''|entity}
                                             ${address_emitter.zip or ''|entity}
-                                            <br/>${_("Localidad:")} ${address_emitter.l10n_mx_city2 or ''|entity}
+                                            <br/>${address_emitter.l10n_mx_city2 or ''|entity}
                                             <br/>${address_emitter.city or ''|entity}
                                             , ${address_emitter.state_id and address_emitter.state_id.name or ''|entity}
                                             , ${address_emitter.country_id and address_emitter.country_id.name or ''|entity}
@@ -73,19 +73,6 @@
                                     %if o.payment_term.name:
                                         Condición de pago: ${o.payment_term.note or o.payment_term.name or ''|entity}
                                     %endif
-                                    %if o.address_issued_id:
-                                    <br/>Expedido en:
-                                        ${o.address_issued_id.name or ''|entity}
-                                        <br/>${o.address_issued_id.street or ''|entity}
-                                        ${o.address_issued_id.l10n_mx_street3 or ''|entity}
-                                        ${o.address_issued_id.l10n_mx_street4 or ''|entity}
-                                        <br/>${o.address_issued_id.street2 or ''|entity}
-                                        ${o.address_issued_id.zip or ''|entity}
-                                        <br/>Localidad: ${o.address_issued_id.l10n_mx_city2 or ''|entity}
-                                        <br/>${o.address_issued_id.city or ''|entity}
-                                        ${o.address_issued_id.state_id.name and ',' or ''|entity} ${o.address_issued_id.state_id and o.address_issued_id.state_id.name or ''|entity}
-                                        ${o.address_issued_id.country_id.name and ',' or ''|entity} ${o.address_issued_id.country_id and o.address_issued_id.country_id.name or ''|entity}
-                                    %endif
                                 <div/>
                             </td>
                         </tr>
@@ -100,7 +87,7 @@
                     <%res_client=get_data_partner(o.partner_id)%>
                     <table class="basic_table">
                         <tr>
-                            <td class="cliente"><b>Receptor:</b></td>
+                            <td class="cliente"><b>Cliente:</b></td>
                             <td width="64%" class="cliente">${res_client['name'] or ''|entity}</td>
                             <td class="cliente"><b>R. F. C.:</b></td>
                             <td width="16%" class="cliente"><b>${res_client['vat'] or ''|entity}</b></td>
@@ -127,7 +114,7 @@
                             <td width="7%" class="cliente"><b>C.P.:</b></td>
                             <td class="cliente">${res_client['zip'] or ''|entity}</td>
                             %if res_client['l10n_mx_city2']:
-                                <td width="12%" class="cliente"><b>Localidad:</b></td>
+                                <td width="12%" class="cliente"></td>
                                 <td class="cliente">${res_client['l10n_mx_city2'] or ''|entity}</td>
                             %endif
                         </tr>
@@ -154,14 +141,28 @@
                             <td width="9%" class="cliente"><b>Origen:</b></td>
                             <td width="23%" class="cliente"><b>${o.origin or ''|entity}</b></td>
                         </tr>
+                        <tr>
+                            <td width="13%" class="cliente"><b>Pedido:</b></td>
+                        </tr>
                     </table>
                 </td>
                 <td width="1%"></td>
-                <td width="19%" align="center">
+                <td width="19%" class="fiscal_address">
+                    %if o.invoice_sequence_id.approval_id and o.invoice_sequence_id.approval_id.type != 'cbb':
+                        ${_("Serie:")} ${o.invoice_sequence_id.approval_id.serie or _("Sin serie")|entity},
+                    %endif
                     %if o.address_issued_id:
-                        ${o.address_issued_id.city or ''|entity},
-                        ${o.address_issued_id.state_id and o.address_issued_id.state_id.name or ''|entity},
-                        ${o.address_issued_id.country_id and o.address_issued_id.country_id.name or ''|entity}
+                        Expedido en:<br/>
+                        ${o.address_issued_id.name or ''|entity}
+                        <br/>${o.address_issued_id.street or ''|entity}
+                        ${o.address_issued_id.l10n_mx_street3 or ''|entity}
+                        ${o.address_issued_id.l10n_mx_street4 or ''|entity}
+                        <br/>${o.address_issued_id.street2 or ''|entity}
+                        <br/>${o.address_issued_id.zip and 'C.P.' or ''|entity} ${o.address_issued_id.zip or ''|entity}
+                        <br/>${o.address_issued_id.l10n_mx_city2 or ''|entity}
+                        <br/>${o.address_issued_id.city or ''|entity}${o.address_issued_id.state_id.name and ',' or ''|entity}
+                        ${o.address_issued_id.state_id and o.address_issued_id.state_id.name or ''|entity}.
+<!--                        ${o.address_issued_id.country_id.name and ',' or ''|entity} ${o.address_issued_id.country_id and o.address_issued_id.country_id.name or ''|entity} -->
                     %endif
                     <br/>${_("a")} ${o.date_invoice_tz or ''|entity}
                     %if o.invoice_sequence_id.approval_id and o.invoice_sequence_id.approval_id.type != 'cbb':
@@ -193,13 +194,29 @@
                 %endif
                     <td width="10%" class="number_td">${line.quantity or '0.0'}</td>
                     <td width="10%" class="basic_td">${line.uos_id.name or ''|entity}</td>
-                    <td class="basic_td">${line.name or ''|entity}</td>
+                    <td class="basic_td">${line.name or ''|entity} 
+                    %if o.link_stockpickingout.move_lines and len(o.link_stockpickingout.move_lines) > 0:
+                      <br>Numeros de Serie:
+                      %for pedi in o.link_stockpickingout.move_lines:
+                        %if (line.product_id == pedi.product_id):
+                          ${pedi.prodlot_id and pedi.prodlot_id.name or ''}
+                        %endif
+                      %endfor
+                    %endif:
+                    </td>
                     <td width="9%" class="number_td">$ ${formatLang(line.price_unit) or '0.0'|entity}</td>
                     %if has_disc(o.invoice_line):
                         <td width="8%" class="number_td">${formatLang(line.discount) or ''|entity} %</td>
                     %endif
                     <td width="15%" class="number_td">$ ${formatLang(line.price_subtotal) or '0.0'|entity}</td>
                 </tr>
+                <tr>
+                  %if has_disc(o.invoice_line):
+                      <td colspan="6" class="basic_td">
+                  %else:
+                      <td colspan="5" class="basic_td">
+                  %endif
+                </td></tr>
                 <%row_count+=1%>
             %endfor
         </table>
@@ -231,21 +248,18 @@
         <table class="basic_table">
             <tr>
                 <td class="tax_td">
-                    ${_("IMPORTE CON LETRA:")}
+                  ${_("IMPORTE CON LETRA:")} <i>${o.amount_to_text or ''|entity}</i>
                 </td>
             </tr>
             <tr>
-                <td class="center_td">
-                    <i>${o.amount_to_text or ''|entity}</i>
-                </td>
-            </tr>
-            <tr>
-                <td class="center_td">
-                    ${_('PAGO EN UNA SOLA EXHIBICI&Oacute;N - EFECTOS FISCALES AL PAGO')}
+                <td class="tax_td">
+                    ${_('PAGO EN UNA SOLA EXHIBICI&Oacute;N - EFECTOS FISCALES AL PAGO')}<br/>
+                    ${_('DESP&Uacute;ES DE 30 D&Iacute;AS NO SE ADMITEN CAMBIOS NI DEVOLUCIONES')}
                 </td>
             </tr>
             
         </table>
+
         <br/>${o.comment or '' |entity}<br/>
         <br clear="all"/>
         <!--code for cfd-->
@@ -357,10 +371,10 @@
                                 ${split_string( o.sello or '') or ''|entity}
                                 <br/><br/><b>${_('Cadena original')}:</b><br/>
                                 ${split_string( o.cadena_original or '') or '' |entity}
+                            </span>
                             </td>
                         </tr>
                 </table>
-                </span>
             </div>
         %endif
         <!--code for cfd32-->
@@ -389,8 +403,6 @@
                             ${split_string( o.cfdi_sello or '') or ''|entity}<br/>
                             <b>${_('Cadena original:')} </b><br/>
                             ${split_string(o.cfdi_cadena_original) or ''|entity}</br>
-                            <b>${_('Enlace al certificado: ')}</b></br>
-                            ${o.pac_id and o.pac_id.certificate_link or ''|entity}</p>
                         </td>
                         %if o.cfdi_cbb:
                         <td align="right">
@@ -399,7 +411,6 @@
                         %endif
                     </tr>
                 </table>
-                <!--</span> si se activan, forzan un brinco de linea-->
             </div>
         %endif
         %if not o.invoice_sequence_id.approval_id.type:

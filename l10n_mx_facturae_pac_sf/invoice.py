@@ -57,6 +57,7 @@ class account_invoice(osv.Model):
     _columns = {
         'cfdi_cbb': fields.binary('CFD-I CBB'),
         'cfdi_sello': fields.text('CFD-I Sello', help='Sign assigned by the SAT'),
+        'cfdi_xml': fields.text('CFD-I xml', help='Archivo XML'),
         'cfdi_no_certificado': fields.char('CFD-I Certificado', size=32,
                                            help='Serial Number of the Certificate'),
         'cfdi_cadena_original': fields.text('CFD-I Cadena Original',

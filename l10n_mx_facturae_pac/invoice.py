@@ -39,6 +39,8 @@ except:
     pass
 import time
 from openerp import tools
+import jinja2
+import xml
 
 
 class account_invoice(osv.Model):
@@ -54,7 +56,6 @@ class account_invoice(osv.Model):
         invoice = self.browse(cr, uid, ids[0], context=context)
         sequence_app_id = ir_seq_app_obj.search(cr, uid, [(
             'sequence_id', '=', invoice.invoice_sequence_id.id)], context=context)
-        type_inv = 'cfd22'
         if sequence_app_id:
             type_inv = ir_seq_app_obj.browse(
                 cr, uid, sequence_app_id[0], context=context).type
@@ -80,29 +81,17 @@ class account_invoice(osv.Model):
                 list_conceptos = []
                 dict_impuestos = dict({'totalImpuestosTrasladados':
                                        totalImpuestosTrasladados, 'cfdi:Traslados': []})
-                totalret = comprobante.get('Impuestos',{}).get('totalImpuestosRetenidos', False)
-                if totalret:
-                    totalImpuestosRetenidos = comprobante['Impuestos']['totalImpuestosRetenidos']
-                    dict_impuestos2 = dict({'totalImpuestosRetenidos':
-                                           totalImpuestosRetenidos, 'cfdi:Retenciones': []})
                 for concepto in comprobante['Conceptos']:
                     list_conceptos.append(dict({'cfdi:Concepto':
                                                 concepto['Concepto']}))
                 for traslado in comprobante['Impuestos']['Traslados']:
                     dict_impuestos['cfdi:Traslados'].append(dict(
                         {'cfdi:Traslado': traslado['Traslado']}))
-                ret = comprobante.get('Impuestos',{}).get('Retenciones',{})
-                if ret:
-                    for traslado in ret:
-                        dict_impuestos2['cfdi:Retenciones'].append(dict(
-                            {'cfdi:Retencion': traslado['Retencion']}))
                 comprobante.update({'cfdi:Emisor': dict_emisor,
                                     'cfdi:Receptor': dict_receptor,
                                     'cfdi:Conceptos': list_conceptos,
                                     'cfdi:Impuestos': dict_impuestos,
                                     })
-                if ret:
-                    comprobante['cfdi:Impuestos'].update(dict_impuestos2)
                 comprobante.pop('Emisor')
                 comprobante.pop('Impuestos')
                 comprobante.pop('Conceptos')
@@ -126,6 +115,7 @@ class account_invoice(osv.Model):
         invoice = self.browse(cr, uid, ids[0], context=context)
         sequence_app_id = ir_seq_app_obj.search(cr, uid, [(
             'sequence_id', '=', invoice.invoice_sequence_id.id)], context=context)
+        all_paths = tools.config["addons_path"].split(",")
         type_inv = 'cfd22'
         if sequence_app_id:
             type_inv = ir_seq_app_obj.browse(
@@ -136,6 +126,10 @@ class account_invoice(osv.Model):
             receptor = 'cfdi:Receptor'
             concepto = 'cfdi:Conceptos'
             facturae_version = '3.2'
+            for my_path in all_paths:
+                if os.path.isdir(os.path.join(my_path, 'l10n_mx_facturae_pac_sf', 'template')):
+                    fname_jinja_tmpl = my_path and os.path.join(my_path, 'l10n_mx_facturae_pac_sf',
+                                                                'template', 'cfdi' + '.xml') or ''
         else:
             comprobante = 'Comprobante'
             emisor = 'Emisor'
@@ -143,16 +137,30 @@ class account_invoice(osv.Model):
             receptor = 'Receptor'
             concepto = 'Conceptos'
             facturae_version = '2.2'
-        data_dict = self._get_facturae_invoice_dict_data(
-            cr, uid, ids, context=context)[0]
-        doc_xml = self.dict2xml({comprobante: data_dict.get(comprobante)})
+            for my_path in all_paths:
+                if os.path.isdir(os.path.join(my_path, 'l10n_mx_facturae', 'template')):
+                    fname_jinja_tmpl = my_path and os.path.join(my_path, 'l10n_mx_facturae', 
+                                                                'template', 'cfd' + '.xml') or ''
+            
+        data_dict = self._get_facturae_invoice_dict_data(cr, uid, ids, context=context)[0]
+        dictargs = {
+                    'o': data_dict
+                    }
         invoice_number = "sn"
+        (fileno_xml, fname_xml) = tempfile.mkstemp('.xml', 'openerp_' + (invoice_number or '') + '__facturae__')
+        with open(fname_jinja_tmpl, 'r') as f_jinja_tmpl:
+            jinja_tmpl_str = f_jinja_tmpl.read().encode('utf-8')
+            tmpl = jinja2.Template( jinja_tmpl_str )
+            with open(fname_xml, 'w') as new_xml:
+                new_xml.write( tmpl.render(**dictargs) )
+        with open(fname_xml,'rb') as b:
+            jinja2_xml = b.read().encode('utf-8')
+            doc_xml = xml.dom.minidom.parseString(jinja2_xml)
         (fileno_xml, fname_xml) = tempfile.mkstemp(
             '.xml', 'openerp_' + (invoice_number or '') + '__facturae__')
         fname_txt = fname_xml + '.txt'
         f = open(fname_xml, 'w')
-        doc_xml.writexml(
-            f, indent='    ', addindent='    ', newl='\r\n', encoding='UTF-8')
+        doc_xml.writexml(f, indent='    ', addindent='    ', newl='\r\n', encoding='UTF-8')
         f.close()
         os.close(fileno_xml)
         (fileno_sign, fname_sign) = tempfile.mkstemp('.txt', 'openerp_' + (
@@ -164,8 +172,7 @@ class account_invoice(osv.Model):
             'fname_sign': fname_sign,
         })
         context.update(self._get_file_globals(cr, uid, ids, context=context))
-        fname_txt, txt_str = self._xml2cad_orig(
-            cr=False, uid=False, ids=False, context=context)
+        fname_txt, txt_str = self._xml2cad_orig(cr=False, uid=False, ids=False, context=context)
         data_dict['cadena_original'] = txt_str
         msg2=''
 
@@ -178,8 +185,7 @@ class account_invoice(osv.Model):
                 "Can't get the folio of the voucher.\nBefore generating the XML, click on the button, generate invoice.\nCkeck your configuration.\n%s" % (msg2)))
 
         context.update({'fecha': data_dict[comprobante]['fecha']})
-        sign_str = self._get_sello(
-            cr=False, uid=False, ids=False, context=context)
+        sign_str = self._get_sello(cr=False, uid=False, ids=False, context=context)
         if not sign_str:
             raise osv.except_osv(_('Error in Stamp !'), _(
                 "Can't generate the stamp of the voucher.\nCkeck your configuration.\ns%s") % (msg2))
@@ -202,13 +208,11 @@ class account_invoice(osv.Model):
         cert_str = cert_str.replace(' ', '').replace('\n', '')
         nodeComprobante.setAttribute("certificado", cert_str)
         data_dict[comprobante]['certificado'] = cert_str
+        
+
         if 'cfdi' in type_inv:
             nodeComprobante.removeAttribute('anoAprobacion')
             nodeComprobante.removeAttribute('noAprobacion')
-        x = doc_xml.documentElement
-        nodeReceptor = doc_xml.getElementsByTagName(receptor)[0]
-        nodeConcepto = doc_xml.getElementsByTagName(concepto)[0]
-        x.insertBefore(nodeReceptor, nodeConcepto)
 
         self.write_cfd_data(cr, uid, ids, data_dict, context=context)
 
@@ -227,7 +231,6 @@ class account_invoice(osv.Model):
         if date_invoice  and date_invoice < '2012-07-01':
             facturae_version = '2.0'
         self.validate_scheme_facturae_xml(cr, uid, ids, [data_xml], facturae_version)
-        data_dict.get('Comprobante',{})
         return fname_xml, data_xml
 
     def validate_scheme_facturae_xml(self, cr, uid, ids, datas_xmls=[], facturae_version = None, facturae_type="cfdv", scheme_type='xsd'):
@@ -253,3 +256,4 @@ class account_invoice(osv.Model):
                     if result: #Valida el xml mediante el archivo xsd
                         raise osv.except_osv('Error al validar la estructura del xml!', 'Validación de XML versión %s:\n%s'%(facturae_version, result))
         return True
+
